@@ -6,12 +6,88 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = document.getElementById('result');
     const transcription = document.getElementById('transcription');
     const summary = document.getElementById('summary');
+    const recentSummariesList = document.createElement('div');
+    recentSummariesList.id = 'recentSummaries';
+    recentSummariesList.className = 'recent-summaries';
+    document.body.appendChild(recentSummariesList);
 
     let mediaRecorder;
     let audioChunks = [];
     let recordingStartTime;
     let recordingTimer;
     let isProcessing = false;
+
+    // Function to save summary to localStorage
+    function saveSummary(transcriptionText, summaryText) {
+        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
+        const newSummary = {
+            id: Date.now(),
+            date: new Date().toISOString(),
+            transcription: transcriptionText,
+            summary: summaryText
+        };
+        summaries.unshift(newSummary); // Add to beginning of array
+        // Keep only the last 10 summaries
+        if (summaries.length > 10) {
+            summaries.pop();
+        }
+        localStorage.setItem('audioSummaries', JSON.stringify(summaries));
+        displayRecentSummaries();
+    }
+
+    // Function to display recent summaries
+    function displayRecentSummaries() {
+        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
+        recentSummariesList.innerHTML = `
+            <h3>Recent Summaries</h3>
+            ${summaries.length === 0 ? '<p>No recent summaries</p>' : ''}
+            <div class="summaries-list">
+                ${summaries.map((item, index) => `
+                    <div class="summary-item" data-id="${item.id}">
+                        <div class="summary-header">
+                            <span class="summary-date">${new Date(item.date).toLocaleString()}</span>
+                            <button class="delete-btn" onclick="deleteSummary(${item.id})">Delete</button>
+                        </div>
+                        <div class="summary-content">
+                            <h4>Summary:</h4>
+                            <p>${item.summary}</p>
+                            <button class="toggle-transcription" onclick="toggleTranscription(${item.id})">
+                                Show Transcription
+                            </button>
+                            <div class="transcription-text hidden" id="transcription-${item.id}">
+                                <h4>Transcription:</h4>
+                                <p>${item.transcription}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // Function to delete a summary
+    window.deleteSummary = function(id) {
+        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
+        const updatedSummaries = summaries.filter(item => item.id !== id);
+        localStorage.setItem('audioSummaries', JSON.stringify(updatedSummaries));
+        displayRecentSummaries();
+    };
+
+    // Function to toggle transcription visibility
+    window.toggleTranscription = function(id) {
+        const transcriptionDiv = document.getElementById(`transcription-${id}`);
+        const button = transcriptionDiv.previousElementSibling;
+        if (transcriptionDiv.classList.contains('hidden')) {
+            transcriptionDiv.classList.remove('hidden');
+            button.textContent = 'Hide Transcription';
+        } else {
+            transcriptionDiv.classList.add('hidden');
+            button.textContent = 'Show Transcription';
+        }
+    };
+
+    // Load existing summaries on page load
+    displayRecentSummaries();
 
     async function startRecording() {
         try {
@@ -126,6 +202,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     summary.textContent = data.summary;
                     result.classList.remove('hidden');
                     status.classList.add('hidden');
+                    
+                    // Save the new summary
+                    saveSummary(data.transcription, data.summary);
+                    
                     isProcessing = false;
                     return;
                 } catch (error) {
