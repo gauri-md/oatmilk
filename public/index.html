@@ -13,19 +13,22 @@
   <div class="container">
     <h1>Meeting Summarizer</h1>
     <div class="upload-container">
-      <input type="file" id="audioFile" accept="audio/*" class="file-input">
-      <label for="audioFile" class="upload-button">Choose Audio File</label>
+      <div class="recording-controls">
+        <button id="recordButton" class="record-button">
+          <span class="record-icon">●</span>
+          Start Recording
+        </button>
+        <div id="recordingStatus" class="recording-status hidden">
+          Recording in progress... <span id="recordingTime">00:00</span>
+        </div>
+      </div>
+      <div id="status" class="status hidden"></div>
     </div>
-    <div id="status" class="status"></div>
-    <div id="result" class="result">
-      <div class="transcription">
-        <h2>Transcription</h2>
-        <div id="transcriptionText"></div>
-      </div>
-      <div class="summary">
-        <h2>Summary</h2>
-        <div id="summaryText"></div>
-      </div>
+    <div id="result" class="result hidden">
+      <h2>Transcription</h2>
+      <div id="transcription" class="transcription"></div>
+      <h2>Summary</h2>
+      <div id="summary" class="summary"></div>
     </div>
   </div>
 
