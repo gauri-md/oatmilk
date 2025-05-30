@@ -12,151 +12,89 @@
 </head>
 <body>
   <div class="app-container">
-    <header>
-      <h1>Meeting Summarizer</h1>
-      <button id="recordButton" class="record-button" aria-label="Start recording">
-        <i class="ph ph-microphone" aria-hidden="true"></i>
-        <span>Start Recording</span>
-      </button>
-    </header>
-
-    <main>
-      <section class="recent-summaries">
-        <div class="section-header">
-          <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i>
-          <h2>Recent Summaries</h2>
-        </div>
-
-        <div class="summaries-list" id="recentSummaries">
-          <!-- Example summary card structure -->
-          <article class="summary-card">
-            <header class="timestamp">
-              <time datetime="2025-05-28T20:01:21">5/28/2025, 8:01:21 PM</time>
-              <button class="delete" aria-label="Delete summary">Delete</button>
-            </header>
-
-            <section>
-              <h3>Key Points</h3>
-              <ul>
-                <li>Patient suspected of having viral fever.</li>
-                <li>Doctor prescribed Azithromycin and Tylenol as part of the treatment plan.</li>
-                <li>Follow-up appointment scheduled for July 4th.</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3>Medical Information</h3>
-              <div>
-                <h4>Medications:</h4>
-                <ul>
-                  <li>
-                    Azithromycin (3 times a day), Tylenol (once a day)
-                    <button class="set-reminder" aria-label="Set medication reminder">
-                      <i class="ph ph-bell" aria-hidden="true"></i>
-                      <span>Set Reminder</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4>Conditions:</h4>
-                <ul>
-                  <li>Suspected viral fever</li>
-                </ul>
-              </div>
-              <div>
-                <h4>Vitals/Metrics:</h4>
-                <ul>
-                  <li>None mentioned</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h3>Important Dates</h3>
-              <ul>
-                <li>
-                  Next appointment scheduled for July 4th
-                  <button class="set-reminder" aria-label="Set appointment reminder">
-                    <i class="ph ph-bell" aria-hidden="true"></i>
-                    <span>Set Reminder</span>
-                  </button>
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h3>Action Items</h3>
-              <ul>
-                <li>Start taking prescribed medications: Azithromycin and Tylenol as directed for 7 days.</li>
-                <li>Attend follow-up appointment on July 4th.</li>
-              </ul>
-            </section>
-
-            <section class="summary-text">
-              <p>Summary: The participant was advised to take Tylenol three times a day and Azithromycin once daily for a seven day period.</p>
-            </section>
-
-            <button class="show-transcription" aria-expanded="false">
-              <i class="ph ph-text-t" aria-hidden="true"></i>
-              <span>Show Transcription</span>
-            </button>
-            <div class="transcription hidden" aria-hidden="true"></div>
-          </article>
-        </div>
-      </section>
-    </main>
-
-    <template id="summaryTemplate">
-      <article class="summary-card">
-        <header class="timestamp">
-          <time></time>
-          <button class="delete" aria-label="Delete summary">Delete</button>
-        </header>
-
-        <section>
-          <h3>Key Points</h3>
-          <ul></ul>
-        </section>
-
-        <section>
-          <h3>Medical Information</h3>
-          <div>
-            <h4>Medications:</h4>
-            <ul class="medication-list"></ul>
-          </div>
-          <div>
-            <h4>Conditions:</h4>
-            <ul class="condition-list"></ul>
-          </div>
-          <div>
-            <h4>Vitals/Metrics:</h4>
-            <ul class="vitals-list"></ul>
-          </div>
-        </section>
-
-        <section>
-          <h3>Important Dates</h3>
-          <ul class="appointment-info"></ul>
-        </section>
-
-        <section>
-          <h3>Action Items</h3>
-          <ul></ul>
-        </section>
-
-        <section class="summary-text">
-          <p></p>
-        </section>
-
-        <button class="show-transcription" aria-expanded="false">
-          <i class="ph ph-text-t" aria-hidden="true"></i>
-          <span>Show Transcription</span>
+    <!-- Home Screen -->
+    <div id="homeScreen" class="screen active">
+      <header>
+        <h1>Visit Summaries</h1>
+        <button id="recordButton" class="record-button" aria-label="Start recording">
+          <i class="ph ph-microphone" aria-hidden="true"></i>
+          <span>Record Visit</span>
         </button>
-        <div class="transcription hidden" aria-hidden="true"></div>
-      </article>
-    </template>
+      </header>
 
+      <main>
+        <div id="recentSummaries" class="summaries-list">
+          <!-- Summaries will be inserted here -->
+        </div>
+      </main>
+    </div>
+
+    <!-- Detail Screen -->
+    <div id="detailScreen" class="screen">
+      <header class="detail-header">
+        <button class="back-button" aria-label="Go back">
+          <i class="ph ph-arrow-left" aria-hidden="true"></i>
+        </button>
+        <h1>Visit Details</h1>
+      </header>
+
+      <main>
+        <article class="summary-card">
+          <header class="timestamp">
+            <time></time>
+            <button class="delete" aria-label="Delete summary">Delete</button>
+          </header>
+
+          <section>
+            <h3>Key Points</h3>
+            <ul></ul>
+          </section>
+
+          <section>
+            <h3>Medical Information</h3>
+            <div>
+              <h4>Medications:</h4>
+              <ul class="medication-list"></ul>
+            </div>
+            <div>
+              <h4>Conditions:</h4>
+              <ul class="condition-list"></ul>
+            </div>
+            <div>
+              <h4>Vitals/Metrics:</h4>
+              <ul class="vitals-list"></ul>
+            </div>
+          </section>
+
+          <section>
+            <h3>Important Dates</h3>
+            <ul class="appointment-info"></ul>
+          </section>
+
+          <section>
+            <h3>Action Items</h3>
+            <ul></ul>
+          </section>
+
+          <section class="summary-text">
+            <p></p>
+          </section>
+
+          <button class="show-transcription" aria-expanded="false">
+            <i class="ph ph-text-t" aria-hidden="true"></i>
+            <span>Show Transcription</span>
+          </button>
+          <div class="transcription hidden" aria-hidden="true"></div>
+        </article>
+      </main>
+    </div>
+
+    <!-- Recording Status -->
+    <div id="recordingStatus" class="recording-status hidden" aria-live="polite">
+      Recording: <span id="recordingTime">00:00</span>
+    </div>
+
+    <!-- Reminder Modal -->
     <dialog id="reminderModal" class="modal">
       <div class="modal-content">
         <header class="modal-header">
@@ -201,10 +139,6 @@
         </form>
       </div>
     </dialog>
-  </div>
-
-  <div id="recordingStatus" class="recording-status hidden" aria-live="polite">
-    Recording: <span id="recordingTime">00:00</span>
   </div>
 
   <script src="app.js"></script>

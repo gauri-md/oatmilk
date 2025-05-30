@@ -15,123 +15,186 @@ document.addEventListener('DOMContentLoaded', () => {
     let recordingTimer;
     let isProcessing = false;
 
-    // Create modal container
-    const modalContainer = document.createElement('div');
-    modalContainer.className = 'modal';
-    modalContainer.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Set Reminder</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <form class="modal-form">
-                <div class="form-group">
-                    <label for="reminder-title">Title</label>
-                    <input type="text" id="reminder-title" required>
-                </div>
-                <div class="form-group">
-                    <label for="reminder-type">Type</label>
-                    <select id="reminder-type" required>
-                        <option value="medicine">Medicine</option>
-                        <option value="appointment">Appointment</option>
-                    </select>
-                </div>
-                <div class="form-group" id="medicine-fields">
-                    <label for="reminder-frequency">Frequency</label>
-                    <select id="reminder-frequency">
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="reminder-date">Date & Time</label>
-                    <input type="datetime-local" id="reminder-date" required>
-                </div>
-                <div class="form-group">
-                    <label for="reminder-notes">Notes</label>
-                    <input type="text" id="reminder-notes">
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="modal-btn cancel">Cancel</button>
-                    <button type="submit" class="modal-btn save">Save Reminder</button>
-                </div>
-            </form>
-        </div>
-    `;
-    document.body.appendChild(modalContainer);
+    // Screen Management
+    const homeScreen = document.getElementById('homeScreen');
+    const detailScreen = document.getElementById('detailScreen');
+    const backButton = detailScreen.querySelector('.back-button');
 
-    // Reminder management
-    class ReminderManager {
-        constructor() {
-            this.reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
-            this.setupNotifications();
-        }
-
-        async setupNotifications() {
-            if ('Notification' in window) {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    this.checkReminders();
-                    setInterval(() => this.checkReminders(), 60000); // Check every minute
-                }
-            }
-        }
-
-        addReminder(reminder) {
-            this.reminders.push({
-                id: Date.now(),
-                ...reminder,
-                notified: false
-            });
-            this.saveReminders();
-            this.scheduleNotification(reminder);
-        }
-
-        removeReminder(id) {
-            this.reminders = this.reminders.filter(r => r.id !== id);
-            this.saveReminders();
-        }
-
-        saveReminders() {
-            localStorage.setItem('reminders', JSON.stringify(this.reminders));
-        }
-
-        scheduleNotification(reminder) {
-            const now = new Date();
-            const reminderDate = new Date(reminder.date);
-            
-            if (reminderDate > now) {
-                const timeUntilReminder = reminderDate - now;
-                setTimeout(() => {
-                    this.showNotification(reminder);
-                }, timeUntilReminder);
-            }
-        }
-
-        showNotification(reminder) {
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(reminder.title, {
-                    body: reminder.notes || 'Time for your reminder!',
-                    icon: '/favicon.ico'
-                });
-            }
-        }
-
-        checkReminders() {
-            const now = new Date();
-            this.reminders.forEach(reminder => {
-                const reminderDate = new Date(reminder.date);
-                if (!reminder.notified && reminderDate <= now) {
-                    this.showNotification(reminder);
-                    reminder.notified = true;
-                    this.saveReminders();
-                }
-            });
-        }
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
     }
 
-    const reminderManager = new ReminderManager();
+    backButton.addEventListener('click', () => {
+        showScreen('homeScreen');
+    });
+
+    // Function to format date for separator
+    function formatDateForSeparator(date) {
+        return new Intl.DateTimeFormat('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        }).format(date);
+    }
+
+    // Function to create a date separator
+    function createDateSeparator(dateStr) {
+        const separator = document.createElement('div');
+        separator.className = 'date-separator';
+        separator.textContent = dateStr;
+        return separator;
+    }
+
+    // Function to create a summary preview card
+    function createSummaryPreview(summaryData) {
+        const preview = document.createElement('div');
+        preview.className = 'summary-preview';
+        preview.setAttribute('data-id', summaryData.id);
+
+        const header = document.createElement('div');
+        header.className = 'preview-header';
+
+        const time = document.createElement('time');
+        time.className = 'preview-time';
+        const date = new Date(summaryData.date);
+        time.textContent = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        time.setAttribute('datetime', date.toISOString());
+
+        header.appendChild(time);
+        preview.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'preview-content';
+        
+        // Extract the main summary text
+        const summaryText = parseSummaryContent(summaryData.summary).summary;
+        content.textContent = summaryText || 'No summary available';
+
+        preview.appendChild(content);
+
+        // Add click handler to navigate to detail view
+        preview.addEventListener('click', () => {
+            showSummaryDetail(summaryData);
+        });
+
+        return preview;
+    }
+
+    // Function to show summary detail
+    function showSummaryDetail(summaryData) {
+        const detailCard = detailScreen.querySelector('.summary-card');
+        
+        // Set timestamp
+        const time = detailCard.querySelector('time');
+        const date = new Date(summaryData.date);
+        time.textContent = date.toLocaleString();
+        time.setAttribute('datetime', date.toISOString());
+
+        // Set delete button handler
+        const deleteBtn = detailCard.querySelector('.delete');
+        deleteBtn.addEventListener('click', () => {
+            deleteSummary(summaryData.id);
+            showScreen('homeScreen');
+        });
+
+        // Parse and populate summary sections
+        if (summaryData.summary) {
+            const sections = parseSummaryContent(summaryData.summary);
+            
+            // Populate Key Points
+            const keyPointsList = detailCard.querySelector('section:nth-of-type(1) ul');
+            keyPointsList.innerHTML = '';
+            sections.keyPoints?.forEach(point => {
+                const li = document.createElement('li');
+                li.textContent = point;
+                keyPointsList.appendChild(li);
+            });
+
+            // Populate Medical Information
+            const medicationList = detailCard.querySelector('.medication-list');
+            const conditionList = detailCard.querySelector('.condition-list');
+            const vitalsList = detailCard.querySelector('.vitals-list');
+
+            medicationList.innerHTML = '';
+            conditionList.innerHTML = '';
+            vitalsList.innerHTML = '';
+
+            sections.medications?.forEach(med => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${med}
+                    <button class="set-reminder" aria-label="Set medication reminder">
+                        <i class="ph ph-bell" aria-hidden="true"></i>
+                        <span>Set Reminder</span>
+                    </button>
+                `;
+                medicationList.appendChild(li);
+            });
+
+            sections.conditions?.forEach(condition => {
+                const li = document.createElement('li');
+                li.textContent = condition;
+                conditionList.appendChild(li);
+            });
+
+            sections.vitals?.forEach(vital => {
+                const li = document.createElement('li');
+                li.textContent = vital;
+                vitalsList.appendChild(li);
+            });
+
+            // Populate Important Dates
+            const datesList = detailCard.querySelector('.appointment-info');
+            datesList.innerHTML = '';
+            sections.dates?.forEach(date => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${date}
+                    <button class="set-reminder" aria-label="Set appointment reminder">
+                        <i class="ph ph-bell" aria-hidden="true"></i>
+                        <span>Set Reminder</span>
+                    </button>
+                `;
+                datesList.appendChild(li);
+            });
+
+            // Populate Action Items
+            const actionList = detailCard.querySelector('section:nth-of-type(4) ul');
+            actionList.innerHTML = '';
+            sections.actionItems?.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                actionList.appendChild(li);
+            });
+
+            // Set Summary Text
+            const summaryText = detailCard.querySelector('.summary-text p');
+            summaryText.textContent = sections.summary || '';
+        }
+
+        // Set up transcription
+        const transcriptionBtn = detailCard.querySelector('.show-transcription');
+        const transcriptionDiv = detailCard.querySelector('.transcription');
+        transcriptionDiv.textContent = summaryData.transcription || '';
+
+        transcriptionBtn.addEventListener('click', () => {
+            const isHidden = transcriptionDiv.classList.toggle('hidden');
+            transcriptionBtn.setAttribute('aria-expanded', !isHidden);
+        });
+
+        // Set up reminder buttons
+        detailCard.querySelectorAll('.set-reminder').forEach(btn => {
+            btn.addEventListener('click', () => {
+                showReminderModal(btn.closest('li').textContent);
+            });
+        });
+
+        showScreen('detailScreen');
+    }
 
     // Function to create a new summary card
     function createSummaryCard(summaryData) {
@@ -302,9 +365,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
         recentSummaries.innerHTML = '';
         
+        if (summaries.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.textContent = 'No visit summaries yet';
+            recentSummaries.appendChild(emptyState);
+            return;
+        }
+
+        let currentDate = null;
+
         summaries.forEach(summary => {
-            const card = createSummaryCard(summary);
-            recentSummaries.appendChild(card);
+            const summaryDate = new Date(summary.date);
+            const dateStr = formatDateForSeparator(summaryDate);
+
+            if (dateStr !== currentDate) {
+                recentSummaries.appendChild(createDateSeparator(dateStr));
+                currentDate = dateStr;
+            }
+
+            const preview = createSummaryPreview(summary);
+            recentSummaries.appendChild(preview);
         });
     }
 
