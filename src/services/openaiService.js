@@ -8,15 +8,24 @@ const openai = new OpenAI({
 
 /**
  * Transcribe audio file using OpenAI's Whisper API
- * @param {string} audioFilePath - Path to the audio file
+ * @param {Buffer|string} audioInput - Audio buffer or file path
  * @returns {Promise<string>} - Transcribed text
  */
-async function transcribeAudio(audioFilePath) {
+async function transcribeAudio(audioInput) {
   try {
-    const audioStream = fs.createReadStream(audioFilePath);
+    let file;
+    if (Buffer.isBuffer(audioInput)) {
+      // If input is a buffer, create a File object
+      file = new File([audioInput], 'audio.webm', { type: 'audio/webm' });
+    } else if (typeof audioInput === 'string') {
+      // If input is a file path, create a read stream
+      file = fs.createReadStream(audioInput);
+    } else {
+      throw new Error('Invalid audio input type');
+    }
     
     const transcription = await openai.audio.transcriptions.create({
-      file: audioStream,
+      file: file,
       model: 'whisper-1',
     });
     
@@ -34,41 +43,40 @@ async function transcribeAudio(audioFilePath) {
  */
 async function summarizeTranscription(transcription) {
   try {
-    const prompt = `
-    You are a medical professional assistant tasked with summarizing a medical meeting. 
-    Please provide a concise summary of the following medical meeting transcription, 
-    highlighting key clinical decisions, action items, and important medical information discussed.
-    
-    Format your response as JSON with the following structure:
-    {
-      "summary": "A concise 2-3 paragraph summary",
-      "keyPoints": ["Point 1", "Point 2", ...],
-      "actionItems": ["Action 1", "Action 2", ...],
-      "medicalTerms": [{"term": "Term 1", "definition": "Definition 1"}, ...]
-    }
-    
-    Transcription:
-    ${transcription}
-    `;
-    
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
           role: 'system',
-          content: 'You are a medical professional assistant that helps summarize medical meetings accurately and concisely.'
+          content: `You are a medical professional assistant that summarizes medical conversations. 
+          Structure your response in the following format using markdown:
+          
+          ### Key Points
+          • [List the main discussion points as bullet points]
+          
+          ### Medical Information
+          • Medications: [List any medications discussed]
+          • Conditions: [List any medical conditions discussed]
+          • Vitals/Metrics: [List any vital signs or health metrics discussed]
+          
+          ### Important Dates
+          • [List any upcoming appointments, follow-ups, or significant dates]
+          
+          ### Action Items
+          • [List any tasks, recommendations, or follow-up actions]
+          
+          Keep bullet points concise and highlight important terms using **bold**. 
+          If any section has no relevant information, include "None mentioned" as the value.`
         },
         {
           role: 'user',
-          content: prompt
+          content: `Please summarize this medical conversation: ${transcription}`
         }
       ],
-      temperature: 0.3,
-      response_format: { type: 'json_object' }
+      temperature: 0.3
     });
     
-    // Parse the JSON response
-    return JSON.parse(response.choices[0].message.content);
+    return response.choices[0].message.content;
   } catch (error) {
     console.error('Error in summarizeTranscription:', error);
     throw new Error(`Failed to summarize transcription: ${error.message}`);

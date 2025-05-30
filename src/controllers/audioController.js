@@ -18,14 +18,13 @@ async function summarizeAudio(req, res) {
       });
     }
 
-    const audioFilePath = req.file.path;
     const originalFilename = req.file.originalname;
     
     // Extract meeting metadata from request body if available
     const { title, participants, date } = req.body;
     
     // Process audio file
-    const transcription = await openaiService.transcribeAudio(audioFilePath);
+    const transcription = await openaiService.transcribeAudio(req.file.buffer);
     
     // Generate summary from transcription
     const summary = await openaiService.summarizeTranscription(transcription);
@@ -36,12 +35,8 @@ async function summarizeAudio(req, res) {
       participants: participants || 'Unknown participants',
       date: date || new Date().toISOString(),
       originalFilename,
-      audioFilePath, // Store path for potential future reference
       transcription,
-      summary: summary.summary,
-      keyPoints: summary.keyPoints,
-      actionItems: summary.actionItems,
-      medicalTerms: summary.medicalTerms
+      summary
     };
     
     // Save summary to storage
@@ -55,20 +50,11 @@ async function summarizeAudio(req, res) {
         id: savedSummary.id,
         title: savedSummary.title,
         createdAt: savedSummary.createdAt,
-        summary: savedSummary.summary,
-        keyPoints: savedSummary.keyPoints,
-        actionItems: savedSummary.actionItems
+        summary: savedSummary.summary
       }
     });
   } catch (error) {
     console.error('Error in summarizeAudio:', error);
-    
-    // Clean up file if it exists
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (unlinkError) => {
-        if (unlinkError) console.error('Error deleting file:', unlinkError);
-      });
-    }
     
     res.status(500).json({
       success: false,
@@ -127,12 +113,9 @@ function getSummaryById(req, res) {
       });
     }
     
-    // Exclude sensitive or unnecessary data
-    const { audioFilePath, ...sanitizedSummary } = summary;
-    
     res.status(200).json({
       success: true,
-      data: sanitizedSummary
+      data: summary
     });
   } catch (error) {
     console.error('Error in getSummaryById:', error);
@@ -144,8 +127,51 @@ function getSummaryById(req, res) {
   }
 }
 
+/**
+ * Save a new summary
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function saveSummary(req, res) {
+  try {
+    const { transcription, summary, date } = req.body;
+    
+    // Prepare data to save
+    const summaryData = {
+      title: `Meeting Summary ${new Date(date).toLocaleDateString()}`,
+      participants: 'Unknown participants',
+      date,
+      transcription,
+      summary
+    };
+    
+    // Save summary to storage
+    const savedSummary = dataService.saveSummary(summaryData);
+    
+    // Return success response
+    res.status(201).json({
+      success: true,
+      message: 'Summary saved successfully',
+      data: {
+        id: savedSummary.id,
+        title: savedSummary.title,
+        createdAt: savedSummary.createdAt,
+        summary: savedSummary.summary
+      }
+    });
+  } catch (error) {
+    console.error('Error in saveSummary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save summary',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   summarizeAudio,
   getSummaries,
-  getSummaryById
+  getSummaryById,
+  saveSummary
 }; 

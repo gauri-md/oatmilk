@@ -1,24 +1,7 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Create a unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure storage to use memory storage
+const storage = multer.memoryStorage();
 
 // File filter for audio files
 const fileFilter = (req, file, cb) => {
@@ -29,19 +12,22 @@ const fileFilter = (req, file, cb) => {
     'audio/m4a', 'audio/x-m4a'
   ];
   
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  // Extract base MIME type for comparison
+  const baseMimeType = file.mimetype.split(';')[0];
+  
+  if (allowedMimeTypes.includes(baseMimeType)) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only audio files are allowed.'), false);
   }
 };
 
-// Create multer upload instance
+// Configure multer
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: process.env.MAX_FILE_SIZE || 25 * 1024 * 1024, // Default to 25MB
+    fileSize: 25 * 1024 * 1024 // 25MB limit
   }
 });
 

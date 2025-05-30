@@ -7,12 +7,22 @@ const dataDir = path.dirname(dataFile);
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
+  console.log('Creating data directory:', dataDir);
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 // Ensure data file exists
 if (!fs.existsSync(dataFile)) {
+  console.log('Creating summaries file:', dataFile);
   fs.writeFileSync(dataFile, JSON.stringify([], null, 2));
+}
+
+/**
+ * Generate a unique ID for a summary
+ * @returns {string} - Unique ID
+ */
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 /**
@@ -21,6 +31,8 @@ if (!fs.existsSync(dataFile)) {
  * @returns {object} - Saved summary with ID
  */
 function saveSummary(summaryData) {
+  console.log('Saving summary:', summaryData);
+  
   try {
     // Read existing summaries
     const summaries = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
@@ -31,6 +43,8 @@ function saveSummary(summaryData) {
       createdAt: new Date().toISOString(),
       ...summaryData
     };
+    
+    console.log('Created new summary:', newSummary);
     
     // Add to summaries and save
     summaries.push(newSummary);
@@ -47,40 +61,42 @@ function saveSummary(summaryData) {
  * Get all summaries
  * @returns {Array} - Array of summaries
  */
-function getAllSummaries() {
+function getSummaries() {
   try {
-    return JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    const summaries = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    console.log(`Retrieved ${summaries.length} summaries`);
+    return summaries;
   } catch (error) {
-    console.error('Error in getAllSummaries:', error);
-    throw new Error(`Failed to retrieve summaries: ${error.message}`);
+    console.error('Error in getSummaries:', error);
+    throw new Error(`Failed to get summaries: ${error.message}`);
   }
 }
 
 /**
- * Get a summary by ID
+ * Get a specific summary by ID
  * @param {string} id - Summary ID
- * @returns {object|null} - Summary or null if not found
+ * @returns {object|null} - Summary object or null if not found
  */
 function getSummaryById(id) {
   try {
     const summaries = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-    return summaries.find(summary => summary.id === id) || null;
+    const summary = summaries.find(s => s.id === id);
+    
+    if (summary) {
+      console.log('Retrieved summary by ID:', id);
+    } else {
+      console.log('Summary not found:', id);
+    }
+    
+    return summary || null;
   } catch (error) {
     console.error('Error in getSummaryById:', error);
-    throw new Error(`Failed to retrieve summary: ${error.message}`);
+    throw new Error(`Failed to get summary: ${error.message}`);
   }
-}
-
-/**
- * Generate a unique ID
- * @returns {string} - Unique ID
- */
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
 }
 
 module.exports = {
   saveSummary,
-  getAllSummaries,
+  getSummaries,
   getSummaryById
 }; 

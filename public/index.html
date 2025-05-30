@@ -11,6 +11,28 @@
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
+  <nav class="navbar">
+    <div class="nav-content">
+      <div class="nav-left">
+        <a href="#" class="nav-logo">
+          <i class="ph ph-heartbeat"></i>
+          <span>MedNotes</span>
+        </a>
+      </div>
+      <div class="nav-right">
+        <button class="nav-button" aria-label="Search">
+          <i class="ph ph-magnifying-glass"></i>
+        </button>
+        <button class="nav-button" aria-label="View all reminders">
+          <i class="ph ph-bell"></i>
+        </button>
+        <button class="nav-button" aria-label="Settings">
+          <i class="ph ph-gear"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
   <div class="app-container">
     <!-- Home Screen -->
     <div id="homeScreen" class="screen active">
@@ -21,6 +43,12 @@
           <span>Record Visit</span>
         </button>
       </header>
+
+      <div id="status" class="status hidden"></div>
+      <div id="result" class="result hidden">
+        <div id="transcription"></div>
+        <div id="summary"></div>
+      </div>
 
       <main>
         <div id="recentSummaries" class="summaries-list">
@@ -34,58 +62,27 @@
       <header class="detail-header">
         <button class="back-button" aria-label="Go back">
           <i class="ph ph-arrow-left" aria-hidden="true"></i>
+          <span>Back</span>
         </button>
-        <h1>Visit Details</h1>
+        <h1 id="summaryTitle">Visit Details</h1>
       </header>
 
       <main>
-        <article class="summary-card">
-          <header class="timestamp">
-            <time></time>
-            <button class="delete" aria-label="Delete summary">Delete</button>
-          </header>
+        <div class="timestamp">
+          <time id="summaryDate"></time>
+        </div>
 
-          <section>
-            <h3>Key Points</h3>
-            <ul></ul>
-          </section>
+        <div id="summary" class="summary-content">
+          <!-- Summary sections will be inserted here -->
+        </div>
 
-          <section>
-            <h3>Medical Information</h3>
-            <div>
-              <h4>Medications:</h4>
-              <ul class="medication-list"></ul>
-            </div>
-            <div>
-              <h4>Conditions:</h4>
-              <ul class="condition-list"></ul>
-            </div>
-            <div>
-              <h4>Vitals/Metrics:</h4>
-              <ul class="vitals-list"></ul>
-            </div>
-          </section>
-
-          <section>
-            <h3>Important Dates</h3>
-            <ul class="appointment-info"></ul>
-          </section>
-
-          <section>
-            <h3>Action Items</h3>
-            <ul></ul>
-          </section>
-
-          <section class="summary-text">
-            <p></p>
-          </section>
-
+        <div class="transcription-section">
           <button class="show-transcription" aria-expanded="false">
             <i class="ph ph-text-t" aria-hidden="true"></i>
             <span>Show Transcription</span>
           </button>
-          <div class="transcription hidden" aria-hidden="true"></div>
-        </article>
+          <div id="transcription" class="transcription hidden"></div>
+        </div>
       </main>
     </div>
 

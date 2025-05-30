@@ -1,4 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Simple markdown to HTML converter
+    function markdownToHtml(markdown) {
+        if (!markdown) return '';
+        
+        // Process the markdown in steps to avoid conflicts
+        let html = markdown
+            // Headers
+            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+            // Bold
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            // Bullet points
+            .replace(/(?:^|\n)(\s*[•-]\s+[^\n]*)/g, '<li>$1</li>')
+            // Line breaks
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, ' ');
+        
+        return html;
+    }
+
+    // DOM Elements
     const recordButton = document.getElementById('recordButton');
     const recordingStatus = document.getElementById('recordingStatus');
     const recordingTime = document.getElementById('recordingTime');
@@ -7,7 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const transcription = document.getElementById('transcription');
     const summary = document.getElementById('summary');
     const recentSummaries = document.getElementById('recentSummaries');
-    const summaryTemplate = document.getElementById('summaryTemplate');
+    const homeScreen = document.getElementById('homeScreen');
+    const detailScreen = document.getElementById('detailScreen');
+    const showTranscriptionBtn = document.querySelector('.show-transcription');
+
+    // Screen Management
+    const backButton = detailScreen?.querySelector('.back-button');
+
+    // Modal Elements
+    const modal = document.getElementById('reminderModal');
+    const closeBtn = modal?.querySelector('.modal-close');
+    const cancelBtn = modal?.querySelector('.cancel');
+    const form = document.getElementById('reminderForm');
 
     let mediaRecorder;
     let audioChunks = [];
@@ -15,390 +50,177 @@ document.addEventListener('DOMContentLoaded', () => {
     let recordingTimer;
     let isProcessing = false;
 
-    // Screen Management
-    const homeScreen = document.getElementById('homeScreen');
-    const detailScreen = document.getElementById('detailScreen');
-    const backButton = detailScreen.querySelector('.back-button');
-
     function showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
         });
-        document.getElementById(screenId).classList.add('active');
+        const targetScreen = document.getElementById(screenId);
+        if (targetScreen) {
+            targetScreen.classList.add('active');
+        }
     }
 
-    backButton.addEventListener('click', () => {
-        showScreen('homeScreen');
-    });
-
-    // Function to format date for separator
-    function formatDateForSeparator(date) {
-        return new Intl.DateTimeFormat('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        }).format(date);
-    }
-
-    // Function to create a date separator
-    function createDateSeparator(dateStr) {
-        const separator = document.createElement('div');
-        separator.className = 'date-separator';
-        separator.textContent = dateStr;
-        return separator;
-    }
-
-    // Function to create a summary preview card
-    function createSummaryPreview(summaryData) {
-        const preview = document.createElement('div');
-        preview.className = 'summary-preview';
-        preview.setAttribute('data-id', summaryData.id);
-
-        const header = document.createElement('div');
-        header.className = 'preview-header';
-
-        const time = document.createElement('time');
-        time.className = 'preview-time';
-        const date = new Date(summaryData.date);
-        time.textContent = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        time.setAttribute('datetime', date.toISOString());
-
-        header.appendChild(time);
-        preview.appendChild(header);
-
-        const content = document.createElement('div');
-        content.className = 'preview-content';
-        
-        // Extract the main summary text
-        const summaryText = parseSummaryContent(summaryData.summary).summary;
-        content.textContent = summaryText || 'No summary available';
-
-        preview.appendChild(content);
-
-        // Add click handler to navigate to detail view
-        preview.addEventListener('click', () => {
-            showSummaryDetail(summaryData);
-        });
-
-        return preview;
-    }
-
-    // Function to show summary detail
-    function showSummaryDetail(summaryData) {
-        const detailCard = detailScreen.querySelector('.summary-card');
-        
-        // Set timestamp
-        const time = detailCard.querySelector('time');
-        const date = new Date(summaryData.date);
-        time.textContent = date.toLocaleString();
-        time.setAttribute('datetime', date.toISOString());
-
-        // Set delete button handler
-        const deleteBtn = detailCard.querySelector('.delete');
-        deleteBtn.addEventListener('click', () => {
-            deleteSummary(summaryData.id);
+    if (backButton) {
+        backButton.addEventListener('click', () => {
             showScreen('homeScreen');
         });
-
-        // Parse and populate summary sections
-        if (summaryData.summary) {
-            const sections = parseSummaryContent(summaryData.summary);
-            
-            // Populate Key Points
-            const keyPointsList = detailCard.querySelector('section:nth-of-type(1) ul');
-            keyPointsList.innerHTML = '';
-            sections.keyPoints?.forEach(point => {
-                const li = document.createElement('li');
-                li.textContent = point;
-                keyPointsList.appendChild(li);
-            });
-
-            // Populate Medical Information
-            const medicationList = detailCard.querySelector('.medication-list');
-            const conditionList = detailCard.querySelector('.condition-list');
-            const vitalsList = detailCard.querySelector('.vitals-list');
-
-            medicationList.innerHTML = '';
-            conditionList.innerHTML = '';
-            vitalsList.innerHTML = '';
-
-            sections.medications?.forEach(med => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    ${med}
-                    <button class="set-reminder" aria-label="Set medication reminder">
-                        <i class="ph ph-bell" aria-hidden="true"></i>
-                        <span>Set Reminder</span>
-                    </button>
-                `;
-                medicationList.appendChild(li);
-            });
-
-            sections.conditions?.forEach(condition => {
-                const li = document.createElement('li');
-                li.textContent = condition;
-                conditionList.appendChild(li);
-            });
-
-            sections.vitals?.forEach(vital => {
-                const li = document.createElement('li');
-                li.textContent = vital;
-                vitalsList.appendChild(li);
-            });
-
-            // Populate Important Dates
-            const datesList = detailCard.querySelector('.appointment-info');
-            datesList.innerHTML = '';
-            sections.dates?.forEach(date => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    ${date}
-                    <button class="set-reminder" aria-label="Set appointment reminder">
-                        <i class="ph ph-bell" aria-hidden="true"></i>
-                        <span>Set Reminder</span>
-                    </button>
-                `;
-                datesList.appendChild(li);
-            });
-
-            // Populate Action Items
-            const actionList = detailCard.querySelector('section:nth-of-type(4) ul');
-            actionList.innerHTML = '';
-            sections.actionItems?.forEach(item => {
-                const li = document.createElement('li');
-                li.textContent = item;
-                actionList.appendChild(li);
-            });
-
-            // Set Summary Text
-            const summaryText = detailCard.querySelector('.summary-text p');
-            summaryText.textContent = sections.summary || '';
-        }
-
-        // Set up transcription
-        const transcriptionBtn = detailCard.querySelector('.show-transcription');
-        const transcriptionDiv = detailCard.querySelector('.transcription');
-        transcriptionDiv.textContent = summaryData.transcription || '';
-
-        transcriptionBtn.addEventListener('click', () => {
-            const isHidden = transcriptionDiv.classList.toggle('hidden');
-            transcriptionBtn.setAttribute('aria-expanded', !isHidden);
-        });
-
-        // Set up reminder buttons
-        detailCard.querySelectorAll('.set-reminder').forEach(btn => {
-            btn.addEventListener('click', () => {
-                showReminderModal(btn.closest('li').textContent);
-            });
-        });
-
-        showScreen('detailScreen');
     }
 
-    // Function to create a new summary card
-    function createSummaryCard(summaryData) {
-        const template = summaryTemplate.content.cloneNode(true);
-        const card = template.querySelector('.summary-card');
+    // Function to show the reminder modal
+    function showReminderModal(info) {
+        const titleInput = /** @type {HTMLInputElement} */ (document.getElementById('title'));
+        const typeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('type'));
+        const notesInput = /** @type {HTMLInputElement} */ (document.getElementById('notes'));
+
+        if (!titleInput || !typeSelect || !notesInput || !modal) return;
+
+        if (info.includes('Medications:')) {
+            titleInput.value = info.replace('Medications:', '').trim();
+            typeSelect.value = 'Medicine';
+        } else {
+            titleInput.value = 'Appointment';
+            typeSelect.value = 'Appointment';
+        }
+        notesInput.value = info;
         
-        // Set timestamp
-        const time = card.querySelector('time');
-        const date = new Date(summaryData.date);
-        time.textContent = date.toLocaleString();
-        time.setAttribute('datetime', date.toISOString());
-
-        // Set delete button handler
-        const deleteBtn = card.querySelector('.delete');
-        deleteBtn.addEventListener('click', () => {
-            deleteSummary(summaryData.id);
-            card.remove();
-        });
-
-        // Parse and populate summary sections
-        if (summaryData.summary) {
-            const sections = parseSummaryContent(summaryData.summary);
-            
-            // Populate Key Points
-            if (sections.keyPoints) {
-                const keyPointsList = card.querySelector('section:nth-of-type(1) ul');
-                sections.keyPoints.forEach(point => {
-                    const li = document.createElement('li');
-                    li.textContent = point;
-                    keyPointsList.appendChild(li);
-                });
-            }
-
-            // Populate Medical Information
-            if (sections.medications || sections.conditions || sections.vitals) {
-                const medicationList = card.querySelector('.medication-list');
-                const conditionList = card.querySelector('.condition-list');
-                const vitalsList = card.querySelector('.vitals-list');
-
-                sections.medications?.forEach(med => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        ${med}
-                        <button class="set-reminder" aria-label="Set medication reminder">
-                            <i class="ph ph-bell" aria-hidden="true"></i>
-                            <span>Set Reminder</span>
-                        </button>
-                    `;
-                    medicationList.appendChild(li);
-                });
-
-                sections.conditions?.forEach(condition => {
-                    const li = document.createElement('li');
-                    li.textContent = condition;
-                    conditionList.appendChild(li);
-                });
-
-                sections.vitals?.forEach(vital => {
-                    const li = document.createElement('li');
-                    li.textContent = vital;
-                    vitalsList.appendChild(li);
-                });
-            }
-
-            // Populate Important Dates
-            if (sections.dates) {
-                const datesList = card.querySelector('.appointment-info');
-                sections.dates.forEach(date => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        ${date}
-                        <button class="set-reminder" aria-label="Set appointment reminder">
-                            <i class="ph ph-bell" aria-hidden="true"></i>
-                            <span>Set Reminder</span>
-                        </button>
-                    `;
-                    datesList.appendChild(li);
-                });
-            }
-
-            // Populate Action Items
-            if (sections.actionItems) {
-                const actionList = card.querySelector('section:nth-of-type(4) ul');
-                sections.actionItems.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = item;
-                    actionList.appendChild(li);
-                });
-            }
-
-            // Set Summary Text
-            if (sections.summary) {
-                const summaryText = card.querySelector('.summary-text p');
-                summaryText.textContent = sections.summary;
-            }
+        if (modal instanceof HTMLDialogElement) {
+            modal.showModal();
         }
-
-        // Set up transcription toggle
-        const transcriptionBtn = card.querySelector('.show-transcription');
-        const transcriptionDiv = card.querySelector('.transcription');
-        transcriptionDiv.textContent = summaryData.transcription || '';
-
-        transcriptionBtn.addEventListener('click', () => {
-            const isHidden = transcriptionDiv.classList.toggle('hidden');
-            transcriptionBtn.setAttribute('aria-expanded', !isHidden);
-        });
-
-        // Set up reminder buttons
-        card.querySelectorAll('.set-reminder').forEach(btn => {
-            btn.addEventListener('click', () => {
-                showReminderModal(btn.closest('li').textContent);
-            });
-        });
-
-        return card;
     }
 
-    // Function to parse summary content into sections
-    function parseSummaryContent(summary) {
+    // Function to save summary
+    async function saveSummary(transcription, summary) {
+        try {
+            const response = await fetch('/api/summaries', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    transcription,
+                    summary,
+                    date: new Date().toISOString()
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save summary');
+            }
+
+            const data = await response.json();
+            if (recentSummaries) {
+                // Refresh the summaries list
+                recentSummaries.innerHTML = '';
+                const summaryItem = document.createElement('div');
+                summaryItem.className = 'summary-preview';
+                summaryItem.innerHTML = `
+                    <div class="preview-header">
+                        <time class="preview-time">${new Date().toLocaleTimeString()}</time>
+                    </div>
+                    <div class="preview-content">${summary}</div>
+                `;
+                recentSummaries.appendChild(summaryItem);
+            }
+            return data;
+        } catch (error) {
+            console.error('Error saving summary:', error);
+            throw error;
+        }
+    }
+
+    // Function to parse markdown summary into sections
+    function parseSummary(markdown) {
         const sections = {
+            summary: '',
             keyPoints: [],
-            medications: [],
-            conditions: [],
-            vitals: [],
-            dates: [],
             actionItems: [],
-            summary: ''
+            medicalTerms: []
         };
 
-        // Split the summary into sections and parse each one
-        const lines = summary.split('\n');
+        // Split markdown into lines
+        const lines = markdown.split('\n');
         let currentSection = '';
 
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line) return;
-
-            if (line.startsWith('### ')) {
-                currentSection = line.substring(4).toLowerCase();
-            } else if (line.startsWith('• ') || line.startsWith('* ')) {
-                const content = line.substring(2);
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            if (trimmedLine.startsWith('### ')) {
+                currentSection = trimmedLine.substring(4).toLowerCase();
+            } else if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-')) {
+                const point = trimmedLine.substring(1).trim();
+                
                 switch (currentSection) {
                     case 'key points':
-                        sections.keyPoints.push(content);
-                        break;
-                    case 'medical information':
-                        if (content.includes('Medications:')) sections.medications.push(content);
-                        else if (content.includes('Conditions:')) sections.conditions.push(content);
-                        else if (content.includes('Vitals:')) sections.vitals.push(content);
-                        break;
-                    case 'important dates':
-                        sections.dates.push(content);
+                        sections.keyPoints.push(point);
                         break;
                     case 'action items':
-                        sections.actionItems.push(content);
+                        sections.actionItems.push(point);
+                        break;
+                    case 'medical information':
+                        if (point.startsWith('Medications:') || point.startsWith('Conditions:') || point.startsWith('Vitals/Metrics:')) {
+                            const [term, ...definition] = point.split(':');
+                            sections.medicalTerms.push({
+                                term: term.trim(),
+                                definition: definition.join(':').trim()
+                            });
+                        }
                         break;
                 }
-            } else if (line.startsWith('Summary:')) {
-                sections.summary = line;
+            } else if (trimmedLine && !trimmedLine.startsWith('#')) {
+                // Add non-header, non-empty lines to summary
+                sections.summary += trimmedLine + '\n';
             }
-        });
+        }
+
+        // Clean up summary
+        sections.summary = sections.summary.trim();
 
         return sections;
     }
 
-    // Function to display recent summaries
-    function displayRecentSummaries() {
-        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
-        recentSummaries.innerHTML = '';
-        
-        if (summaries.length === 0) {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'empty-state';
-            emptyState.textContent = 'No visit summaries yet';
-            recentSummaries.appendChild(emptyState);
-            return;
-        }
-
-        let currentDate = null;
-
-        summaries.forEach(summary => {
-            const summaryDate = new Date(summary.date);
-            const dateStr = formatDateForSeparator(summaryDate);
-
-            if (dateStr !== currentDate) {
-                recentSummaries.appendChild(createDateSeparator(dateStr));
-                currentDate = dateStr;
-            }
-
-            const preview = createSummaryPreview(summary);
-            recentSummaries.appendChild(preview);
+    // Event Listeners
+    if (closeBtn && modal instanceof HTMLDialogElement) {
+        closeBtn.addEventListener('click', () => modal.close());
+    }
+    if (cancelBtn && modal instanceof HTMLDialogElement) {
+        cancelBtn.addEventListener('click', () => modal.close());
+    }
+    if (modal instanceof HTMLDialogElement) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.close();
         });
     }
 
-    // Function to delete a summary
-    function deleteSummary(id) {
-        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
-        const updatedSummaries = summaries.filter(s => s.id !== id);
-        localStorage.setItem('audioSummaries', JSON.stringify(updatedSummaries));
+    if (form instanceof HTMLFormElement) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const titleInput = /** @type {HTMLInputElement} */ (document.getElementById('title'));
+            const typeSelect = /** @type {HTMLSelectElement} */ (document.getElementById('type'));
+            const datetimeInput = /** @type {HTMLInputElement} */ (document.getElementById('datetime'));
+            const notesInput = /** @type {HTMLInputElement} */ (document.getElementById('notes'));
+            const frequencySelect = /** @type {HTMLSelectElement} */ (document.getElementById('frequency'));
+
+            if (!titleInput || !typeSelect || !datetimeInput || !notesInput || !frequencySelect) return;
+
+            const reminder = {
+                title: titleInput.value,
+                type: typeSelect.value,
+                datetime: datetimeInput.value,
+                notes: notesInput.value,
+                frequency: frequencySelect.value
+            };
+
+            // Save reminder (you'll need to implement this)
+            console.log('Saving reminder:', reminder);
+            if (modal instanceof HTMLDialogElement) {
+                modal.close();
+            }
+            form.reset();
+        });
     }
 
-    // Load existing summaries when the page loads
-    displayRecentSummaries();
-
+    // Recording functionality
     async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -428,22 +250,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Request data every second
             mediaRecorder.start(1000);
             recordingStartTime = Date.now();
             updateRecordingTime();
             recordingTimer = setInterval(updateRecordingTime, 1000);
 
-            recordButton.textContent = 'Stop Recording';
-            recordButton.classList.add('recording');
-            recordingStatus.classList.remove('hidden');
-            recordingStatus.classList.add('recording');
-            result.classList.add('hidden');
+            if (recordButton) recordButton.textContent = 'Stop Recording';
+            if (recordButton) recordButton.classList.add('recording');
+            if (recordingStatus) recordingStatus.classList.remove('hidden');
+            if (recordingStatus) recordingStatus.classList.add('recording');
+            if (result) result.classList.add('hidden');
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            status.textContent = 'Error accessing microphone. Please ensure you have granted microphone permissions.';
-            status.classList.remove('hidden');
-            status.classList.add('error');
+            if (status) {
+                status.textContent = 'Error accessing microphone. Please ensure you have granted microphone permissions.';
+                status.classList.remove('hidden');
+                status.classList.add('error');
+            }
         }
     }
 
@@ -453,14 +276,19 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder.stream.getTracks().forEach(track => track.stop());
             clearInterval(recordingTimer);
             
-            recordButton.textContent = 'Start Recording';
-            recordButton.classList.remove('recording');
-            recordingStatus.classList.add('hidden');
-            recordingStatus.classList.remove('recording');
+            if (recordButton) {
+                recordButton.textContent = 'Start Recording';
+                recordButton.classList.remove('recording');
+            }
+            if (recordingStatus) {
+                recordingStatus.classList.add('hidden');
+                recordingStatus.classList.remove('recording');
+            }
         }
     }
 
     function updateRecordingTime() {
+        if (!recordingTime) return;
         const elapsedTime = Math.floor((Date.now() - recordingStartTime) / 1000);
         const minutes = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
         const seconds = (elapsedTime % 60).toString().padStart(2, '0');
@@ -472,14 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isProcessing = true;
 
         try {
-            status.textContent = 'Processing audio...';
-            status.classList.remove('hidden', 'error');
-            status.classList.add('processing');
-
-            // Validate blob size
-            const MAX_SIZE = 25 * 1024 * 1024; // 25MB
-            if (audioBlob.size > MAX_SIZE) {
-                throw new Error('Audio file is too large. Maximum size is 25MB.');
+            if (status) {
+                status.textContent = 'Processing audio...';
+                status.classList.remove('hidden', 'error');
+                status.classList.add('processing');
             }
 
             const formData = new FormData();
@@ -508,13 +332,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     const data = await response.json();
-                    transcription.textContent = data.transcription;
-                    summary.innerHTML = markdownToHtml(data.summary);
-                    result.classList.remove('hidden');
-                    status.classList.add('hidden');
+                    console.log('Received data from server:', data);
                     
-                    // Save the new summary
-                    saveSummary(data.transcription, data.summary);
+                    // Hide status
+                    if (status) {
+                        status.classList.add('hidden');
+                        status.classList.remove('processing');
+                    }
+
+                    // Save the summary
+                    console.log('Saving summary with data:', data);
+                    const savedSummary = await saveSummary(data.transcription, data.summary);
+                    console.log('Summary saved:', savedSummary);
+                    
+                    // Load all summaries to update the list in the background
+                    await loadSummaries();
+                    
+                    // Show the detail view for the new summary
+                    console.log('Loading summary details for ID:', savedSummary.data.id);
+                    const summaryResponse = await fetch(`/api/summaries/${savedSummary.data.id}`);
+                    if (summaryResponse.ok) {
+                        const summaryData = await summaryResponse.json();
+                        console.log('Summary detail data:', summaryData);
+                        showSummaryDetail(summaryData.data);
+                    }
                     
                     isProcessing = false;
                     return;
@@ -528,7 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     retryCount++;
                     if (retryCount < maxRetries) {
                         const delay = Math.min(baseDelay * Math.pow(2, retryCount), 5000);
-                        status.textContent = `Processing failed, retrying in ${delay/1000} seconds...`;
+                        if (status) {
+                            status.textContent = `Processing failed, retrying in ${delay/1000} seconds...`;
+                        }
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
                 }
@@ -537,76 +380,126 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Failed to process audio after multiple attempts. Please try again.');
         } catch (error) {
             console.error('Final error:', error);
-            status.textContent = error.message || 'Error processing audio. Please try again.';
-            status.classList.remove('processing');
-            status.classList.add('error');
+            if (status) {
+                status.textContent = error.message || 'Error processing audio. Please try again.';
+                status.classList.remove('processing');
+                status.classList.add('error');
+            }
         } finally {
             isProcessing = false;
         }
     }
 
-    recordButton.addEventListener('click', () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            stopRecording();
-        } else {
-            startRecording();
+    if (recordButton) {
+        recordButton.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+    }
+
+    // Load summaries when page loads
+    loadSummaries();
+
+    // Function to load summaries
+    async function loadSummaries() {
+        try {
+            const response = await fetch('/api/summaries');
+            if (response.ok) {
+                const summariesData = await response.json();
+                if (recentSummaries) {
+                    recentSummaries.innerHTML = '';
+                    if (summariesData.data.length === 0) {
+                        const emptyMessage = document.createElement('div');
+                        emptyMessage.className = 'empty-message';
+                        emptyMessage.textContent = 'No summaries yet. Record your first medical conversation to get started.';
+                        recentSummaries.appendChild(emptyMessage);
+                    } else {
+                        summariesData.data.forEach(summary => {
+                            const summaryItem = document.createElement('div');
+                            summaryItem.className = 'summary-preview';
+                            summaryItem.innerHTML = `
+                                <div class="preview-header">
+                                    <h3 class="preview-title">${summary.title || 'Untitled Summary'}</h3>
+                                    <time class="preview-time">${new Date(summary.date).toLocaleTimeString()}</time>
+                                </div>
+                                <div class="preview-content">${summary.summary.substring(0, 200)}...</div>
+                            `;
+
+                            // Make the entire card clickable
+                            summaryItem.style.cursor = 'pointer';
+                            summaryItem.addEventListener('click', async () => {
+                                try {
+                                    const detailResponse = await fetch(`/api/summaries/${summary.id}`);
+                                    if (!detailResponse.ok) {
+                                        throw new Error('Failed to load summary details');
+                                    }
+                                    const detailData = await detailResponse.json();
+                                    showSummaryDetail(detailData.data);
+                                } catch (error) {
+                                    console.error('Error loading summary details:', error);
+                                    alert('Failed to load summary details. Please try again.');
+                                }
+                            });
+
+                            recentSummaries.appendChild(summaryItem);
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading summaries:', error);
+            if (recentSummaries) {
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'error-message';
+                errorMessage.textContent = 'Failed to load summaries. Please try again later.';
+                recentSummaries.appendChild(errorMessage);
+            }
         }
-    });
+    }
 
-    // Global functions for reminder handling
-    window.setMedicineReminder = function(medicineInfo) {
-        const modal = document.querySelector('.modal');
-        const form = modal.querySelector('.modal-form');
-        const titleInput = modal.querySelector('#reminder-title');
-        const typeSelect = modal.querySelector('#reminder-type');
-        const notesInput = modal.querySelector('#reminder-notes');
-
-        titleInput.value = medicineInfo.replace('Medications:', '').trim();
-        typeSelect.value = 'medicine';
-        notesInput.value = medicineInfo;
+    // Function to show summary detail
+    function showSummaryDetail(summaryData) {
+        console.log('Showing summary detail:', summaryData);
         
-        modal.classList.add('active');
-    };
+        // Hide home screen and show detail screen
+        if (homeScreen) homeScreen.classList.remove('active');
+        if (detailScreen) {
+            detailScreen.classList.add('active');
+            
+            // Update detail screen content
+            const detailTitle = detailScreen.querySelector('#summaryTitle');
+            const detailDate = detailScreen.querySelector('#summaryDate');
+            const detailTranscription = detailScreen.querySelector('#transcription');
+            const detailSummary = detailScreen.querySelector('#summary');
+            
+            if (detailTitle) detailTitle.textContent = summaryData.title || 'Untitled Summary';
+            if (detailDate) detailDate.textContent = new Date(summaryData.date).toLocaleString();
+            if (detailTranscription) detailTranscription.textContent = summaryData.transcription || 'No transcription available';
+            if (detailSummary) {
+                console.log('Setting summary HTML:', summaryData.summary);
+                detailSummary.innerHTML = markdownToHtml(summaryData.summary || 'No summary available');
+            }
+        }
+    }
 
-    window.setAppointmentReminder = function(appointmentInfo) {
-        const modal = document.querySelector('.modal');
-        const form = modal.querySelector('.modal-form');
-        const titleInput = modal.querySelector('#reminder-title');
-        const typeSelect = modal.querySelector('#reminder-type');
-        const notesInput = modal.querySelector('#reminder-notes');
+    // Handle back button in detail view
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            if (homeScreen) homeScreen.classList.add('active');
+            if (detailScreen) detailScreen.classList.remove('active');
+        });
+    }
 
-        titleInput.value = 'Appointment';
-        typeSelect.value = 'appointment';
-        notesInput.value = appointmentInfo;
-        
-        modal.classList.add('active');
-    };
-
-    // Modal event listeners
-    const modal = document.querySelector('.modal');
-    const closeBtn = modal.querySelector('.modal-close');
-    const cancelBtn = modal.querySelector('.modal-btn.cancel');
-    const form = modal.querySelector('.modal-form');
-
-    closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-    cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
-
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const reminder = {
-            title: form.querySelector('#reminder-title').value,
-            type: form.querySelector('#reminder-type').value,
-            date: form.querySelector('#reminder-date').value,
-            notes: form.querySelector('#reminder-notes').value,
-            frequency: form.querySelector('#reminder-frequency').value
-        };
-
-        reminderManager.addReminder(reminder);
-        modal.classList.remove('active');
-        form.reset();
-    });
+    // Add transcription toggle functionality
+    if (showTranscriptionBtn && transcription) {
+        showTranscriptionBtn.addEventListener('click', () => {
+            const isExpanded = showTranscriptionBtn.getAttribute('aria-expanded') === 'true';
+            showTranscriptionBtn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+            transcription.classList.toggle('hidden');
+            showTranscriptionBtn.querySelector('span').textContent = isExpanded ? 'Show Transcription' : 'Hide Transcription';
+        });
+    }
 }); 
