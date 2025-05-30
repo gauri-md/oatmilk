@@ -168,11 +168,29 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "You are a helpful assistant that summarizes meeting transcripts. Focus on key points, action items, and decisions made."
+              content: `You are a medical transcription assistant that summarizes medical conversations. 
+              Structure your response in the following format using markdown:
+              
+              ### Key Points
+              • [List the main discussion points as bullet points]
+              
+              ### Medical Information
+              • Medications: [List any medications discussed]
+              • Conditions: [List any medical conditions discussed]
+              • Vitals/Metrics: [List any vital signs or health metrics discussed]
+              
+              ### Important Dates
+              • [List any upcoming appointments, follow-ups, or significant dates]
+              
+              ### Action Items
+              • [List any tasks, recommendations, or follow-up actions]
+              
+              Keep bullet points concise and highlight important terms using **bold**. 
+              If any section has no relevant information, include "None mentioned" as the value.`
             },
             {
               role: "user",
-              content: `Please summarize this meeting transcript: ${transcription.text}`
+              content: `Please summarize this medical conversation: ${transcription.text}`
             }
           ]
         })
@@ -181,7 +199,8 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
       console.log('Summary generated successfully');
       return res.json({
         transcription: transcription.text,
-        summary: summary.choices[0].message.content
+        summary: summary.choices[0].message.content,
+        structured: true
       });
     } catch (openaiError) {
       console.error('OpenAI API Error:', openaiError);

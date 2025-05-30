@@ -6,10 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = document.getElementById('result');
     const transcription = document.getElementById('transcription');
     const summary = document.getElementById('summary');
-    const recentSummariesList = document.createElement('div');
-    recentSummariesList.id = 'recentSummaries';
-    recentSummariesList.className = 'recent-summaries';
-    document.body.appendChild(recentSummariesList);
+    const recentSummaries = document.getElementById('recentSummaries');
+    const summaryTemplate = document.getElementById('summaryTemplate');
 
     let mediaRecorder;
     let audioChunks = [];
@@ -17,76 +15,307 @@ document.addEventListener('DOMContentLoaded', () => {
     let recordingTimer;
     let isProcessing = false;
 
-    // Function to save summary to localStorage
-    function saveSummary(transcriptionText, summaryText) {
-        const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
-        const newSummary = {
-            id: Date.now(),
-            date: new Date().toISOString(),
-            transcription: transcriptionText,
-            summary: summaryText
-        };
-        summaries.unshift(newSummary); // Add to beginning of array
-        // Keep only the last 10 summaries
-        if (summaries.length > 10) {
-            summaries.pop();
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal';
+    modalContainer.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Set Reminder</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form class="modal-form">
+                <div class="form-group">
+                    <label for="reminder-title">Title</label>
+                    <input type="text" id="reminder-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="reminder-type">Type</label>
+                    <select id="reminder-type" required>
+                        <option value="medicine">Medicine</option>
+                        <option value="appointment">Appointment</option>
+                    </select>
+                </div>
+                <div class="form-group" id="medicine-fields">
+                    <label for="reminder-frequency">Frequency</label>
+                    <select id="reminder-frequency">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="reminder-date">Date & Time</label>
+                    <input type="datetime-local" id="reminder-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="reminder-notes">Notes</label>
+                    <input type="text" id="reminder-notes">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn cancel">Cancel</button>
+                    <button type="submit" class="modal-btn save">Save Reminder</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modalContainer);
+
+    // Reminder management
+    class ReminderManager {
+        constructor() {
+            this.reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+            this.setupNotifications();
         }
-        localStorage.setItem('audioSummaries', JSON.stringify(summaries));
-        displayRecentSummaries();
+
+        async setupNotifications() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    this.checkReminders();
+                    setInterval(() => this.checkReminders(), 60000); // Check every minute
+                }
+            }
+        }
+
+        addReminder(reminder) {
+            this.reminders.push({
+                id: Date.now(),
+                ...reminder,
+                notified: false
+            });
+            this.saveReminders();
+            this.scheduleNotification(reminder);
+        }
+
+        removeReminder(id) {
+            this.reminders = this.reminders.filter(r => r.id !== id);
+            this.saveReminders();
+        }
+
+        saveReminders() {
+            localStorage.setItem('reminders', JSON.stringify(this.reminders));
+        }
+
+        scheduleNotification(reminder) {
+            const now = new Date();
+            const reminderDate = new Date(reminder.date);
+            
+            if (reminderDate > now) {
+                const timeUntilReminder = reminderDate - now;
+                setTimeout(() => {
+                    this.showNotification(reminder);
+                }, timeUntilReminder);
+            }
+        }
+
+        showNotification(reminder) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(reminder.title, {
+                    body: reminder.notes || 'Time for your reminder!',
+                    icon: '/favicon.ico'
+                });
+            }
+        }
+
+        checkReminders() {
+            const now = new Date();
+            this.reminders.forEach(reminder => {
+                const reminderDate = new Date(reminder.date);
+                if (!reminder.notified && reminderDate <= now) {
+                    this.showNotification(reminder);
+                    reminder.notified = true;
+                    this.saveReminders();
+                }
+            });
+        }
+    }
+
+    const reminderManager = new ReminderManager();
+
+    // Function to create a new summary card
+    function createSummaryCard(summaryData) {
+        const template = summaryTemplate.content.cloneNode(true);
+        const card = template.querySelector('.summary-card');
+        
+        // Set timestamp
+        const time = card.querySelector('time');
+        const date = new Date(summaryData.date);
+        time.textContent = date.toLocaleString();
+        time.setAttribute('datetime', date.toISOString());
+
+        // Set delete button handler
+        const deleteBtn = card.querySelector('.delete');
+        deleteBtn.addEventListener('click', () => {
+            deleteSummary(summaryData.id);
+            card.remove();
+        });
+
+        // Parse and populate summary sections
+        if (summaryData.summary) {
+            const sections = parseSummaryContent(summaryData.summary);
+            
+            // Populate Key Points
+            if (sections.keyPoints) {
+                const keyPointsList = card.querySelector('section:nth-of-type(1) ul');
+                sections.keyPoints.forEach(point => {
+                    const li = document.createElement('li');
+                    li.textContent = point;
+                    keyPointsList.appendChild(li);
+                });
+            }
+
+            // Populate Medical Information
+            if (sections.medications || sections.conditions || sections.vitals) {
+                const medicationList = card.querySelector('.medication-list');
+                const conditionList = card.querySelector('.condition-list');
+                const vitalsList = card.querySelector('.vitals-list');
+
+                sections.medications?.forEach(med => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        ${med}
+                        <button class="set-reminder" aria-label="Set medication reminder">
+                            <i class="ph ph-bell" aria-hidden="true"></i>
+                            <span>Set Reminder</span>
+                        </button>
+                    `;
+                    medicationList.appendChild(li);
+                });
+
+                sections.conditions?.forEach(condition => {
+                    const li = document.createElement('li');
+                    li.textContent = condition;
+                    conditionList.appendChild(li);
+                });
+
+                sections.vitals?.forEach(vital => {
+                    const li = document.createElement('li');
+                    li.textContent = vital;
+                    vitalsList.appendChild(li);
+                });
+            }
+
+            // Populate Important Dates
+            if (sections.dates) {
+                const datesList = card.querySelector('.appointment-info');
+                sections.dates.forEach(date => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        ${date}
+                        <button class="set-reminder" aria-label="Set appointment reminder">
+                            <i class="ph ph-bell" aria-hidden="true"></i>
+                            <span>Set Reminder</span>
+                        </button>
+                    `;
+                    datesList.appendChild(li);
+                });
+            }
+
+            // Populate Action Items
+            if (sections.actionItems) {
+                const actionList = card.querySelector('section:nth-of-type(4) ul');
+                sections.actionItems.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    actionList.appendChild(li);
+                });
+            }
+
+            // Set Summary Text
+            if (sections.summary) {
+                const summaryText = card.querySelector('.summary-text p');
+                summaryText.textContent = sections.summary;
+            }
+        }
+
+        // Set up transcription toggle
+        const transcriptionBtn = card.querySelector('.show-transcription');
+        const transcriptionDiv = card.querySelector('.transcription');
+        transcriptionDiv.textContent = summaryData.transcription || '';
+
+        transcriptionBtn.addEventListener('click', () => {
+            const isHidden = transcriptionDiv.classList.toggle('hidden');
+            transcriptionBtn.setAttribute('aria-expanded', !isHidden);
+        });
+
+        // Set up reminder buttons
+        card.querySelectorAll('.set-reminder').forEach(btn => {
+            btn.addEventListener('click', () => {
+                showReminderModal(btn.closest('li').textContent);
+            });
+        });
+
+        return card;
+    }
+
+    // Function to parse summary content into sections
+    function parseSummaryContent(summary) {
+        const sections = {
+            keyPoints: [],
+            medications: [],
+            conditions: [],
+            vitals: [],
+            dates: [],
+            actionItems: [],
+            summary: ''
+        };
+
+        // Split the summary into sections and parse each one
+        const lines = summary.split('\n');
+        let currentSection = '';
+
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line) return;
+
+            if (line.startsWith('### ')) {
+                currentSection = line.substring(4).toLowerCase();
+            } else if (line.startsWith('• ') || line.startsWith('* ')) {
+                const content = line.substring(2);
+                switch (currentSection) {
+                    case 'key points':
+                        sections.keyPoints.push(content);
+                        break;
+                    case 'medical information':
+                        if (content.includes('Medications:')) sections.medications.push(content);
+                        else if (content.includes('Conditions:')) sections.conditions.push(content);
+                        else if (content.includes('Vitals:')) sections.vitals.push(content);
+                        break;
+                    case 'important dates':
+                        sections.dates.push(content);
+                        break;
+                    case 'action items':
+                        sections.actionItems.push(content);
+                        break;
+                }
+            } else if (line.startsWith('Summary:')) {
+                sections.summary = line;
+            }
+        });
+
+        return sections;
     }
 
     // Function to display recent summaries
     function displayRecentSummaries() {
         const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
-        recentSummariesList.innerHTML = `
-            <h3>Recent Summaries</h3>
-            ${summaries.length === 0 ? '<p>No recent summaries</p>' : ''}
-            <div class="summaries-list">
-                ${summaries.map((item, index) => `
-                    <div class="summary-item" data-id="${item.id}">
-                        <div class="summary-header">
-                            <span class="summary-date">${new Date(item.date).toLocaleString()}</span>
-                            <button class="delete-btn" onclick="deleteSummary(${item.id})">Delete</button>
-                        </div>
-                        <div class="summary-content">
-                            <h4>Summary:</h4>
-                            <p>${item.summary}</p>
-                            <button class="toggle-transcription" onclick="toggleTranscription(${item.id})">
-                                Show Transcription
-                            </button>
-                            <div class="transcription-text hidden" id="transcription-${item.id}">
-                                <h4>Transcription:</h4>
-                                <p>${item.transcription}</p>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        recentSummaries.innerHTML = '';
+        
+        summaries.forEach(summary => {
+            const card = createSummaryCard(summary);
+            recentSummaries.appendChild(card);
+        });
     }
 
     // Function to delete a summary
-    window.deleteSummary = function(id) {
+    function deleteSummary(id) {
         const summaries = JSON.parse(localStorage.getItem('audioSummaries') || '[]');
-        const updatedSummaries = summaries.filter(item => item.id !== id);
+        const updatedSummaries = summaries.filter(s => s.id !== id);
         localStorage.setItem('audioSummaries', JSON.stringify(updatedSummaries));
-        displayRecentSummaries();
-    };
+    }
 
-    // Function to toggle transcription visibility
-    window.toggleTranscription = function(id) {
-        const transcriptionDiv = document.getElementById(`transcription-${id}`);
-        const button = transcriptionDiv.previousElementSibling;
-        if (transcriptionDiv.classList.contains('hidden')) {
-            transcriptionDiv.classList.remove('hidden');
-            button.textContent = 'Hide Transcription';
-        } else {
-            transcriptionDiv.classList.add('hidden');
-            button.textContent = 'Show Transcription';
-        }
-    };
-
-    // Load existing summaries on page load
+    // Load existing summaries when the page loads
     displayRecentSummaries();
 
     async function startRecording() {
@@ -199,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const data = await response.json();
                     transcription.textContent = data.transcription;
-                    summary.textContent = data.summary;
+                    summary.innerHTML = markdownToHtml(data.summary);
                     result.classList.remove('hidden');
                     status.classList.add('hidden');
                     
@@ -241,5 +470,62 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             startRecording();
         }
+    });
+
+    // Global functions for reminder handling
+    window.setMedicineReminder = function(medicineInfo) {
+        const modal = document.querySelector('.modal');
+        const form = modal.querySelector('.modal-form');
+        const titleInput = modal.querySelector('#reminder-title');
+        const typeSelect = modal.querySelector('#reminder-type');
+        const notesInput = modal.querySelector('#reminder-notes');
+
+        titleInput.value = medicineInfo.replace('Medications:', '').trim();
+        typeSelect.value = 'medicine';
+        notesInput.value = medicineInfo;
+        
+        modal.classList.add('active');
+    };
+
+    window.setAppointmentReminder = function(appointmentInfo) {
+        const modal = document.querySelector('.modal');
+        const form = modal.querySelector('.modal-form');
+        const titleInput = modal.querySelector('#reminder-title');
+        const typeSelect = modal.querySelector('#reminder-type');
+        const notesInput = modal.querySelector('#reminder-notes');
+
+        titleInput.value = 'Appointment';
+        typeSelect.value = 'appointment';
+        notesInput.value = appointmentInfo;
+        
+        modal.classList.add('active');
+    };
+
+    // Modal event listeners
+    const modal = document.querySelector('.modal');
+    const closeBtn = modal.querySelector('.modal-close');
+    const cancelBtn = modal.querySelector('.modal-btn.cancel');
+    const form = modal.querySelector('.modal-form');
+
+    closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+    cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+    });
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const reminder = {
+            title: form.querySelector('#reminder-title').value,
+            type: form.querySelector('#reminder-type').value,
+            date: form.querySelector('#reminder-date').value,
+            notes: form.querySelector('#reminder-notes').value,
+            frequency: form.querySelector('#reminder-frequency').value
+        };
+
+        reminderManager.addReminder(reminder);
+        modal.classList.remove('active');
+        form.reset();
     });
 }); 
