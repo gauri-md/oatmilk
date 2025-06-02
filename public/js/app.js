@@ -213,7 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
             emptyMessage.textContent = 'No summaries yet. Record your first medical conversation to get started.';
             recentSummaries.appendChild(emptyMessage);
           } else if (summariesData.data) {
-            summariesData.data.forEach((summaryItem, index) => {
+            // Sort summaries by creation date (most recent first)
+            const sortedSummaries = summariesData.data.sort((a, b) => {
+              const dateA = new Date(a.createdAt || a.date).getTime();
+              const dateB = new Date(b.createdAt || b.date).getTime();
+              return dateB - dateA; // Descending order (newest first)
+            });
+            
+            sortedSummaries.forEach((summaryItem, index) => {
               const summaryCard = document.createElement('div');
               summaryCard.className = 'summary-preview';
               
