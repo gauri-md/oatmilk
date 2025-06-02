@@ -741,4 +741,354 @@ header {
     margin-top: var(--space-xl);
     padding-top: var(--space-lg);
     border-top: 1px solid var(--border);
+}
+
+/* Loading and Error States */
+.loading-message, .error-message {
+    padding: var(--space-lg);
+    text-align: center;
+    border-radius: var(--radius-md);
+    margin: var(--space-md) 0;
+}
+
+.loading-message {
+    background-color: var(--primary-light);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.error-message {
+    background-color: #ffeaea;
+    color: var(--error);
+    border: 1px solid var(--error);
+}
+
+.empty-message {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-light);
+    font-style: italic;
+}
+
+/* Improved summary content styling */
+.summary-content {
+    display: block !important;
+    width: 100% !important;
+    min-height: 50px !important;
+    box-sizing: border-box !important;
+}
+
+.summary-content h1, .summary-content h2, .summary-content h3 {
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-md);
+    color: var(--text-dark);
+}
+
+.summary-content h3 {
+    font-size: var(--font-lg);
+    font-weight: 600;
+}
+
+.summary-content ul {
+    margin: var(--space-md) 0;
+    padding-left: var(--space-lg);
+}
+
+.summary-content li {
+    margin-bottom: var(--space-xs);
+    line-height: 1.5;
+}
+
+.summary-content p {
+    margin: var(--space-md) 0;
+    line-height: 1.6;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xxs);
+    margin: var(--space-lg) 0;
+    border: 1px solid var(--border);
+}
+
+.tab-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-medium);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.tab-button:hover {
+    color: var(--text-dark);
+    background: rgba(74, 144, 226, 0.1);
+}
+
+.tab-button.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.tab-button i {
+    font-size: var(--font-md);
+}
+
+/* Tab Content */
+.tab-content {
+    position: relative;
+}
+
+.tab-panel {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Settings Styles */
+.settings-content {
+    max-width: 600px;
+}
+
+.setting-group {
+    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+}
+
+.setting-group h3 {
+    margin: 0 0 var(--space-md) 0;
+    color: var(--text-dark);
+    font-size: var(--font-md);
+    font-weight: 600;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-item label {
+    font-size: var(--font-base);
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.setting-item select {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+    color: var(--text-dark);
+    font-size: var(--font-sm);
+}
+
+.setting-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+.delete-all-btn {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.delete-all-btn:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+/* Reminders Styles */
+.reminders-content {
+    max-width: 700px;
+}
+
+.reminders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+}
+
+.reminders-header h2 {
+    margin: 0;
+    color: var(--text-dark);
+}
+
+.add-reminder-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.add-reminder-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.reminders-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.reminder-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+}
+
+.reminder-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.reminder-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    color: white;
+}
+
+.reminder-icon.medication {
+    background: #28a745;
+}
+
+.reminder-icon.appointment {
+    background: #007bff;
+}
+
+.reminder-icon i {
+    font-size: 20px;
+}
+
+.reminder-content {
+    flex: 1;
+}
+
+.reminder-content h3 {
+    margin: 0 0 var(--space-xxs) 0;
+    font-size: var(--font-md);
+    color: var(--text-dark);
+}
+
+.reminder-content p {
+    margin: 0 0 var(--space-xxs) 0;
+    font-size: var(--font-sm);
+    color: var(--text-medium);
+}
+
+.reminder-time {
+    font-size: var(--font-sm);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.reminder-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.reminder-edit,
+.reminder-delete {
+    background: none;
+    border: none;
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text-light);
+}
+
+.reminder-edit:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.reminder-delete:hover {
+    background: #f8d7da;
+    color: var(--error);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .tab-button {
+        flex-direction: column;
+        gap: var(--space-xxs);
+        padding: var(--space-xs);
+    }
+    
+    .tab-button span {
+        font-size: 11px;
+    }
+    
+    .reminder-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-sm);
+    }
+    
+    .reminder-actions {
+        align-self: flex-end;
+    }
+    
+    .reminders-header {
+        flex-direction: column;
+        gap: var(--space-md);
+        align-items: flex-start;
+    }
 } 

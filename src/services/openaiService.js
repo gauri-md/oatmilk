@@ -1,5 +1,6 @@
 const { OpenAI } = require('openai');
 const fs = require('fs');
+const path = require('path');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -14,9 +15,13 @@ const openai = new OpenAI({
 async function transcribeAudio(audioInput) {
   try {
     let file;
+    let tempFilePath = null;
+    
     if (Buffer.isBuffer(audioInput)) {
-      // If input is a buffer, create a File object
-      file = new File([audioInput], 'audio.webm', { type: 'audio/webm' });
+      // If input is a buffer, create a temporary file
+      tempFilePath = path.join(process.cwd(), 'temp_audio_' + Date.now() + '.webm');
+      fs.writeFileSync(tempFilePath, audioInput);
+      file = fs.createReadStream(tempFilePath);
     } else if (typeof audioInput === 'string') {
       // If input is a file path, create a read stream
       file = fs.createReadStream(audioInput);
@@ -28,6 +33,15 @@ async function transcribeAudio(audioInput) {
       file: file,
       model: 'whisper-1',
     });
+    
+    // Clean up temporary file if created
+    if (tempFilePath) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (cleanupError) {
+        console.error('Error cleaning up temporary file:', cleanupError);
+      }
+    }
     
     return transcription.text;
   } catch (error) {

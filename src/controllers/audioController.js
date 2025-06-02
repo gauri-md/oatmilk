@@ -71,7 +71,7 @@ async function summarizeAudio(req, res) {
  */
 function getSummaries(req, res) {
   try {
-    const summaries = dataService.getAllSummaries();
+    const summaries = dataService.getSummaries();
     
     // Return only necessary data for listing
     const simplifiedSummaries = summaries.map(summary => ({

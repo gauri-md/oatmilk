@@ -1,248 +1,676 @@
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
-  const uploadForm = document.getElementById('upload-form');
-  const audioFileInput = document.getElementById('audio-file');
-  const fileNameDisplay = document.getElementById('file-name');
-  const uploadProgress = document.getElementById('upload-progress');
-  const summariesSection = document.getElementById('summaries-section');
-  const summariesList = document.getElementById('summaries-list');
-  const summaryDetailSection = document.getElementById('summary-detail-section');
-  const backBtn = document.getElementById('back-btn');
-  const summaryTitle = document.getElementById('summary-title');
-  const summaryDate = document.getElementById('summary-date');
+  const recordButton = document.getElementById('recordButton');
+  const recordingStatus = document.getElementById('recordingStatus');
+  const recordingTime = document.getElementById('recordingTime');
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+  const transcription = document.getElementById('transcription');
+  const summary = document.getElementById('summary');
+  const recentSummaries = document.getElementById('recentSummaries');
+  const homeScreen = document.getElementById('homeScreen');
+  const detailScreen = document.getElementById('detailScreen');
+  const showTranscriptionBtn = document.querySelector('.show-transcription');
+  const backButton = detailScreen?.querySelector('.back-button');
+  const summaryTitle = document.getElementById('summaryTitle');
+  const summaryDate = document.getElementById('summaryDate');
   const summaryParticipants = document.getElementById('summary-participants');
   const summaryText = document.getElementById('summary-text');
   const keyPoints = document.getElementById('key-points');
   const actionItems = document.getElementById('action-items');
   const medicalTerms = document.getElementById('medical-terms');
   
-  // Templates
-  const summaryItemTemplate = document.getElementById('summary-item-template');
+  // Recording state
+  let mediaRecorder;
+  let audioChunks = [];
+  let recordingStartTime;
+  let recordingTimer;
+  let isProcessing = false;
   
   // Initial load
   loadSummaries();
   
+  // Initialize tabs
+  initializeTabs();
+  
   // Event Listeners
-  if (audioFileInput) {
-    audioFileInput.addEventListener('change', updateFileName);
+  if (recordButton) {
+    recordButton.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
   }
   
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', handleSubmit);
+  if (backButton) {
+    backButton.addEventListener('click', () => {
+      showHomeScreen();
+    });
   }
   
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      summaryDetailSection.classList.add('hidden');
-      summariesSection.classList.remove('hidden');
+  if (showTranscriptionBtn && transcription) {
+    showTranscriptionBtn.addEventListener('click', () => {
+      const isExpanded = showTranscriptionBtn.getAttribute('aria-expanded') === 'true';
+      showTranscriptionBtn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+      transcription.classList.toggle('hidden');
+      showTranscriptionBtn.querySelector('span').textContent = isExpanded ? 'Show Transcription' : 'Hide Transcription';
     });
   }
   
   // Functions
-  function updateFileName() {
-    if (audioFileInput.files.length > 0) {
-      const fileName = audioFileInput.files[0].name;
-      fileNameDisplay.textContent = fileName;
-    } else {
-      fileNameDisplay.textContent = '';
+  function initializeTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+        switchTab(targetTab);
+      });
+    });
+  }
+  
+  function switchTab(targetTab) {
+    // Remove active class from all buttons and panels
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+    
+    // Add active class to target button and panel
+    const targetButton = document.querySelector(`[data-tab="${targetTab}"]`);
+    const targetPanel = document.getElementById(`${targetTab}Tab`);
+    
+    if (targetButton) targetButton.classList.add('active');
+    if (targetPanel) targetPanel.classList.add('active');
+    
+    console.log('Switched to tab:', targetTab);
+  }
+  
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+      
+      audioChunks = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        if (!isProcessing) {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+          await processAudio(audioBlob);
+        }
+      };
+      
+      mediaRecorder.start(1000);
+      recordingStartTime = Date.now();
+      updateRecordingTime();
+      recordingTimer = setInterval(updateRecordingTime, 1000);
+      
+      if (recordButton) {
+        recordButton.textContent = 'Stop Recording';
+        recordButton.classList.add('recording');
+      }
+      if (recordingStatus) {
+        recordingStatus.classList.remove('hidden');
+        recordingStatus.classList.add('recording');
+      }
+      if (result) result.classList.add('hidden');
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      if (status) {
+        status.textContent = 'Error accessing microphone. Please ensure you have granted microphone permissions.';
+        status.classList.remove('hidden');
+        status.classList.add('error');
+      }
     }
   }
   
-  async function handleSubmit(event) {
-    event.preventDefault();
-    
-    // Validate form
-    if (!audioFileInput.files.length) {
-      alert('Please select an audio file to upload');
-      return;
-    }
-    
-    // Prepare form data
-    const formData = new FormData(uploadForm);
-    
-    // Show progress indicator
-    uploadForm.classList.add('hidden');
-    uploadProgress.classList.remove('hidden');
-    
-    try {
-      // Upload file and get response
-      const response = await fetch('/api/summarize', {
-        method: 'POST',
-        body: formData,
-      });
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      clearInterval(recordingTimer);
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to process audio');
+      if (recordButton) {
+        recordButton.textContent = 'Start Recording';
+        recordButton.classList.remove('recording');
       }
-      
-      const result = await response.json();
-      
-      // Reset form
-      uploadForm.reset();
-      fileNameDisplay.textContent = '';
-      
-      // Hide progress and show form again
-      uploadProgress.classList.add('hidden');
-      uploadForm.classList.remove('hidden');
-      
-      // Reload summaries to include the new one
-      await loadSummaries();
-      
-      // Show the newly created summary
-      showSummaryDetails(result.data.id);
-      
-    } catch (error) {
-      console.error('Error:', error);
-      alert(error.message || 'An error occurred while processing the audio');
-      
-      // Hide progress and show form again
-      uploadProgress.classList.add('hidden');
-      uploadForm.classList.remove('hidden');
+      if (recordingStatus) {
+        recordingStatus.classList.add('hidden');
+        recordingStatus.classList.remove('recording');
+      }
     }
+  }
+  
+  function updateRecordingTime() {
+    if (!recordingTime) return;
+    const elapsedTime = Math.floor((Date.now() - recordingStartTime) / 1000);
+    const minutes = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
+    const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+    recordingTime.textContent = `${minutes}:${seconds}`;
   }
   
   async function loadSummaries() {
+    // Show loading state
+    if (recentSummaries) {
+      recentSummaries.innerHTML = '<div class="loading-message">Loading summaries...</div>';
+    }
+    
     try {
       const response = await fetch('/api/summaries');
-      
-      if (!response.ok) {
+      if (response.ok) {
+        const summariesData = await response.json();
+        
+        if (recentSummaries) {
+          recentSummaries.innerHTML = '';
+          if (summariesData.data && summariesData.data.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'empty-message';
+            emptyMessage.textContent = 'No summaries yet. Record your first medical conversation to get started.';
+            recentSummaries.appendChild(emptyMessage);
+          } else if (summariesData.data) {
+            summariesData.data.forEach((summaryItem, index) => {
+              const summaryCard = document.createElement('div');
+              summaryCard.className = 'summary-preview';
+              
+              const titleToShow = summaryItem.title || 'Untitled Summary';
+              
+              // Create a preview of the visit content
+              let previewText = '';
+              if (summaryItem.transcription && summaryItem.transcription.trim()) {
+                // Use first 100 characters of transcription as preview
+                previewText = summaryItem.transcription.substring(0, 100);
+                if (summaryItem.transcription.length > 100) {
+                  previewText += '...';
+                }
+              } else if (summaryItem.summary && summaryItem.summary.trim()) {
+                // Extract key points from markdown summary
+                const lines = summaryItem.summary.split('\n');
+                const keyPointsSection = lines.find(line => line.includes('• ') && !line.includes('None mentioned'));
+                if (keyPointsSection) {
+                  previewText = keyPointsSection.replace('• ', '').substring(0, 100);
+                  if (keyPointsSection.length > 100) {
+                    previewText += '...';
+                  }
+                } else {
+                  previewText = 'No content preview available';
+                }
+              } else {
+                previewText = 'No content available';
+              }
+              
+              summaryCard.innerHTML = `
+                <div class="preview-header">
+                  <h3 class="preview-title">${titleToShow}</h3>
+                  <div class="preview-date" style="font-size: 12px; color: #666;">${new Date(summaryItem.createdAt || summaryItem.date).toLocaleDateString()}</div>
+                </div>
+                <div class="preview-content" style="margin-top: 8px; color: #666; font-size: 14px; line-height: 1.4;">
+                  ${previewText}
+                </div>
+              `;
+              
+              // Make the entire card clickable
+              summaryCard.style.cursor = 'pointer';
+              summaryCard.addEventListener('click', async () => {
+                try {
+                  console.log('Clicking on summary:', summaryItem.id);
+                  
+                  // Immediately show detail screen with nuclear approach
+                  showScreen(detailScreen);
+                  
+                  if (summary) {
+                    summary.innerHTML = '<div class="loading-message">Loading summary details...</div>';
+                  }
+                  
+                  const detailResponse = await fetch(`/api/summaries/${summaryItem.id}`);
+                  if (!detailResponse.ok) {
+                    throw new Error('Failed to load summary details');
+                  }
+                  const detailData = await detailResponse.json();
+                  if (detailData.data) {
+                    showSummaryDetail(detailData.data);
+                  } else {
+                    throw new Error('No summary data received');
+                  }
+                } catch (error) {
+                  console.error('Error loading summary details:', error);
+                  if (summary) {
+                    summary.innerHTML = '<div class="error-message">Failed to load summary details</div>';
+                  }
+                  // Stay on detail screen but show error
+                  alert('Failed to load summary details. Please try again.');
+                }
+              });
+              
+              recentSummaries.appendChild(summaryCard);
+            });
+          }
+        }
+      } else {
         throw new Error('Failed to load summaries');
       }
-      
-      const result = await response.json();
-      
-      // Clear existing list
-      summariesList.innerHTML = '';
-      
-      if (result.data.length === 0) {
-        // Show empty message
-        const emptyMessage = document.createElement('p');
-        emptyMessage.className = 'empty-message';
-        emptyMessage.textContent = 'No summaries yet. Upload a recording to get started.';
-        summariesList.appendChild(emptyMessage);
-      } else {
-        // Render summaries
-        result.data.forEach(summary => {
-          renderSummaryItem(summary);
-        });
-      }
     } catch (error) {
-      console.error('Error:', error);
-      const errorMessage = document.createElement('p');
-      errorMessage.className = 'empty-message';
-      errorMessage.textContent = 'Failed to load summaries. Please try again later.';
-      summariesList.innerHTML = '';
-      summariesList.appendChild(errorMessage);
+      console.error('Error loading summaries:', error);
+      if (recentSummaries) {
+        recentSummaries.innerHTML = '';
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'error-message';
+        errorMessage.textContent = 'Failed to load summaries. Please try again later.';
+        recentSummaries.appendChild(errorMessage);
+      }
     }
   }
   
-  function renderSummaryItem(summary) {
-    // Clone template
-    const template = summaryItemTemplate.content.cloneNode(true);
-    const summaryItem = template.querySelector('.summary-item');
-    
-    // Set data attribute for ID
-    summaryItem.dataset.id = summary.id;
-    
-    // Populate content
-    template.querySelector('.summary-item-title').textContent = summary.title;
-    template.querySelector('.summary-item-date').textContent = formatDate(summary.date);
-    template.querySelector('.summary-item-preview').textContent = summary.summary;
-    
-    // Add click event
-    const viewButton = template.querySelector('.view-summary-btn');
-    viewButton.addEventListener('click', () => {
-      showSummaryDetails(summary.id);
+  function hideAllScreens() {
+    const allScreens = document.querySelectorAll('.screen');
+    allScreens.forEach(screen => {
+      screen.classList.remove('active');
+      if (screen instanceof HTMLElement) {
+        // Nuclear approach - use every possible CSS property to hide
+        screen.style.display = 'none';
+        screen.style.visibility = 'hidden';
+        screen.style.opacity = '0';
+        screen.style.position = 'absolute';
+        screen.style.left = '-9999px';
+        screen.style.top = '-9999px';
+        screen.style.width = '0';
+        screen.style.height = '0';
+        screen.style.overflow = 'hidden';
+        screen.style.zIndex = '-1';
+      }
     });
-    
-    // Add to list
-    summariesList.appendChild(template);
   }
   
-  async function showSummaryDetails(id) {
+  function showScreen(targetScreen) {
+    if (targetScreen instanceof HTMLElement) {
+      // First hide everything
+      hideAllScreens();
+      
+      // Then show only the target screen with aggressive CSS
+      targetScreen.classList.add('active');
+      targetScreen.style.display = 'block';
+      targetScreen.style.visibility = 'visible';
+      targetScreen.style.opacity = '1';
+      targetScreen.style.position = 'static';
+      targetScreen.style.left = 'auto';
+      targetScreen.style.top = 'auto';
+      targetScreen.style.width = 'auto';
+      targetScreen.style.height = 'auto';
+      targetScreen.style.overflow = 'visible';
+      targetScreen.style.zIndex = 'auto';
+    }
+  }
+  
+  function showSummaryDetail(summaryData) {
+    console.log('showSummaryDetail called - navigating to detail screen');
+    
+    // Use nuclear screen management
+    showScreen(detailScreen);
+    
+    if (detailScreen) {
+      console.log('Detail screen shown');
+      
+      // Scroll to top to ensure user sees the detail view
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Update detail screen content with error handling
+      try {
+        if (summaryTitle) {
+          summaryTitle.textContent = summaryData.title || 'Untitled Summary';
+        }
+        
+        if (summaryDate) {
+          summaryDate.textContent = new Date(summaryData.date).toLocaleString();
+        }
+        
+        if (transcription) {
+          transcription.textContent = summaryData.transcription || 'No transcription available';
+          transcription.classList.add('hidden'); // Hide transcription by default
+        }
+        
+        // Handle summary content - support both old and new formats
+        if (summary) {
+          let summaryContent = '';
+          
+          if (summaryData.summary && summaryData.summary.trim()) {
+            // New format - use markdown summary
+            summaryContent = markdownToHtml(summaryData.summary);
+          } else if (summaryData.keyPoints || summaryData.actionItems || summaryData.medicalTerms) {
+            // Old format - build summary from separate fields
+            summaryContent = buildSummaryFromOldFormat(summaryData);
+          } else {
+            summaryContent = '<p>No summary available</p>';
+          }
+          
+          summary.innerHTML = summaryContent;
+          
+          // CSS overrides to ensure visibility and proper dimensions
+          summary.style.setProperty('background-color', '#f8f9fa', 'important');
+          summary.style.setProperty('border', '1px solid #e0e0e0', 'important');
+          summary.style.setProperty('padding', '20px', 'important');
+          summary.style.setProperty('margin', '20px 0px', 'important');
+          summary.style.setProperty('min-height', '100px', 'important');
+          summary.style.setProperty('width', '100%', 'important');
+          summary.style.setProperty('display', 'block', 'important');
+          summary.style.setProperty('box-sizing', 'border-box', 'important');
+          summary.style.setProperty('visibility', 'visible', 'important');
+          summary.style.setProperty('opacity', '1', 'important');
+          summary.style.setProperty('position', 'static', 'important');
+          summary.style.setProperty('float', 'none', 'important');
+          summary.style.setProperty('clear', 'both', 'important');
+          summary.style.setProperty('overflow', 'visible', 'important');
+          summary.style.setProperty('max-width', 'none', 'important');
+          summary.style.setProperty('height', 'auto', 'important');
+          summary.style.setProperty('line-height', '1.5', 'important');
+          summary.style.setProperty('font-size', '16px', 'important');
+          summary.style.setProperty('color', '#1a1a1a', 'important');
+          
+          // Also force parent containers to be visible
+          let parent = summary.parentElement;
+          while (parent && parent !== document.body) {
+            parent.style.setProperty('display', 'block', 'important');
+            parent.style.setProperty('visibility', 'visible', 'important');
+            parent.style.setProperty('opacity', '1', 'important');
+            parent.style.setProperty('position', 'static', 'important');
+            parent.style.setProperty('overflow', 'visible', 'important');
+            parent.style.setProperty('width', 'auto', 'important');
+            parent.style.setProperty('height', 'auto', 'important');
+            parent = parent.parentElement;
+          }
+        }
+        
+        // Reset transcription button state
+        if (showTranscriptionBtn) {
+          showTranscriptionBtn.setAttribute('aria-expanded', 'false');
+          const span = showTranscriptionBtn.querySelector('span');
+          if (span) span.textContent = 'Show Transcription';
+        }
+      } catch (error) {
+        console.error('Error displaying summary detail:', error);
+        if (summary) {
+          summary.innerHTML = '<p>Error displaying summary content</p>';
+        }
+      }
+    }
+  }
+  
+  function showHomeScreen() {
+    console.log('showHomeScreen called - navigating to home screen');
+    
+    // Use nuclear screen management
+    showScreen(homeScreen);
+    
+    if (homeScreen) {
+      console.log('Home screen shown');
+    }
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  
+  function buildSummaryFromOldFormat(summaryData) {
+    let content = '';
+    
+    // Key Points
+    if (summaryData.keyPoints && summaryData.keyPoints.length > 0) {
+      content += '<h3>Key Points</h3><ul>';
+      summaryData.keyPoints.forEach(point => {
+        content += `<li>${point}</li>`;
+      });
+      content += '</ul>';
+    }
+    
+    // Medical Terms
+    if (summaryData.medicalTerms && summaryData.medicalTerms.length > 0) {
+      content += '<h3>Medical Information</h3><ul>';
+      summaryData.medicalTerms.forEach(term => {
+        content += `<li><strong>${term.term}:</strong> ${term.definition}</li>`;
+      });
+      content += '</ul>';
+    }
+    
+    // Action Items
+    if (summaryData.actionItems && summaryData.actionItems.length > 0) {
+      content += '<h3>Action Items</h3><ul>';
+      summaryData.actionItems.forEach(item => {
+        content += `<li>${item}</li>`;
+      });
+      content += '</ul>';
+    }
+    
+    return content || '<p>No summary content available</p>';
+  }
+  
+  function markdownToHtml(markdown) {
+    if (!markdown) return '';
+    
+    // Split into lines for processing
+    const lines = markdown.split('\n');
+    const result = [];
+    let inList = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (!line) {
+        if (inList) {
+          result.push('</ul>');
+          inList = false;
+        }
+        result.push('<br>');
+        continue;
+      }
+      
+      // Handle headers
+      if (line.startsWith('### ')) {
+        if (inList) {
+          result.push('</ul>');
+          inList = false;
+        }
+        result.push(`<h3>${line.substring(4)}</h3>`);
+      } else if (line.startsWith('## ')) {
+        if (inList) {
+          result.push('</ul>');
+          inList = false;
+        }
+        result.push(`<h2>${line.substring(3)}</h2>`);
+      } else if (line.startsWith('# ')) {
+        if (inList) {
+          result.push('</ul>');
+          inList = false;
+        }
+        result.push(`<h1>${line.substring(2)}</h1>`);
+      }
+      // Handle bullet points
+      else if (line.startsWith('• ') || line.startsWith('- ')) {
+        if (!inList) {
+          result.push('<ul>');
+          inList = true;
+        }
+        const content = line.substring(2).trim();
+        const processedContent = content
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        result.push(`<li>${processedContent}</li>`);
+      }
+      // Handle regular text
+      else {
+        if (inList) {
+          result.push('</ul>');
+          inList = false;
+        }
+        const processedLine = line
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        result.push(`<p>${processedLine}</p>`);
+      }
+    }
+    
+    // Close any remaining list
+    if (inList) {
+      result.push('</ul>');
+    }
+    
+    return result.join('');
+  }
+  
+  async function processAudio(audioBlob) {
+    if (isProcessing) return;
+    isProcessing = true;
+    
     try {
-      const response = await fetch(`/api/summaries/${id}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load summary details');
+      if (status) {
+        status.textContent = 'Processing audio...';
+        status.classList.remove('hidden', 'error');
+        status.classList.add('processing');
       }
       
-      const { data: summary } = await response.json();
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
       
-      // Populate summary details
-      summaryTitle.textContent = summary.title;
-      summaryDate.textContent = `Date: ${formatDate(summary.date)}`;
-      summaryParticipants.textContent = `Participants: ${summary.participants}`;
-      summaryText.textContent = summary.summary;
+      let retryCount = 0;
+      const maxRetries = 3;
+      const baseDelay = 1000; // 1 second
       
-      // Populate key points
-      keyPoints.innerHTML = '';
-      if (summary.keyPoints && summary.keyPoints.length) {
-        summary.keyPoints.forEach(point => {
-          const li = document.createElement('li');
-          li.textContent = point;
-          keyPoints.appendChild(li);
-        });
-      } else {
-        keyPoints.innerHTML = '<li>No key points found</li>';
-      }
-      
-      // Populate action items
-      actionItems.innerHTML = '';
-      if (summary.actionItems && summary.actionItems.length) {
-        summary.actionItems.forEach(item => {
-          const li = document.createElement('li');
-          li.textContent = item;
-          actionItems.appendChild(li);
-        });
-      } else {
-        actionItems.innerHTML = '<li>No action items found</li>';
-      }
-      
-      // Populate medical terms
-      medicalTerms.innerHTML = '';
-      if (summary.medicalTerms && summary.medicalTerms.length) {
-        summary.medicalTerms.forEach(term => {
-          const termItem = document.createElement('div');
-          termItem.className = 'term-item';
+      while (retryCount < maxRetries) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
           
-          const termName = document.createElement('div');
-          termName.className = 'term-name';
-          termName.textContent = term.term;
-          
-          const termDefinition = document.createElement('div');
-          termDefinition.className = 'term-definition';
-          termDefinition.textContent = term.definition;
-          
-          termItem.appendChild(termName);
-          termItem.appendChild(termDefinition);
-          
-          // Toggle definition on click
-          termItem.addEventListener('click', () => {
-            termItem.classList.toggle('expanded');
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
           });
           
-          medicalTerms.appendChild(termItem);
-        });
-      } else {
-        const noTerms = document.createElement('p');
-        noTerms.textContent = 'No medical terms found';
-        medicalTerms.appendChild(noTerms);
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.details || errorData.error || `Server error: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('Audio processing completed, received:', data);
+          
+          // Hide status
+          if (status) {
+            status.classList.add('hidden');
+            status.classList.remove('processing');
+          }
+          
+          // Save the summary
+          const savedSummary = await saveSummary(data.transcription, data.summary);
+          console.log('Summary saved successfully:', savedSummary);
+          
+          // Load all summaries to update the list in the background
+          await loadSummaries();
+          
+          // Show the detail view for the new summary directly
+          const newSummaryData = {
+            id: savedSummary.data.id,
+            title: savedSummary.data.title,
+            date: savedSummary.data.createdAt,
+            transcription: data.transcription,
+            summary: data.summary,
+            createdAt: savedSummary.data.createdAt
+          };
+          
+          console.log('Showing summary detail with data:', newSummaryData);
+          showSummaryDetail(newSummaryData);
+          
+          // Add visual feedback that summary is ready
+          if (status) {
+            status.textContent = 'Summary complete! View details below.';
+            status.classList.remove('hidden', 'processing', 'error');
+            status.style.backgroundColor = 'var(--success)';
+            status.style.color = 'white';
+            
+            // Hide success message after 3 seconds
+            setTimeout(() => {
+              if (status) {
+                status.classList.add('hidden');
+                status.style.backgroundColor = '';
+                status.style.color = '';
+              }
+            }, 3000);
+          }
+          
+          isProcessing = false;
+          return;
+        } catch (error) {
+          console.error(`Attempt ${retryCount + 1} failed:`, error);
+          
+          if (error.name === 'AbortError') {
+            throw new Error('Request timed out. Please try again.');
+          }
+          
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const delay = Math.min(baseDelay * Math.pow(2, retryCount), 5000);
+            if (status) {
+              status.textContent = `Processing failed, retrying in ${delay/1000} seconds...`;
+            }
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
       }
       
-      // Show summary detail section and hide summaries list
-      summariesSection.classList.add('hidden');
-      summaryDetailSection.classList.remove('hidden');
-      
+      throw new Error('Failed to process audio after multiple attempts. Please try again.');
     } catch (error) {
-      console.error('Error:', error);
-      alert('Failed to load summary details. Please try again later.');
+      console.error('Final error:', error);
+      if (status) {
+        status.textContent = error.message || 'Error processing audio. Please try again.';
+        status.classList.remove('processing');
+        status.classList.add('error');
+      }
+    } finally {
+      isProcessing = false;
     }
   }
   
-  function formatDate(dateString) {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  async function saveSummary(transcription, summary) {
+    try {
+      const response = await fetch('/api/summaries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          transcription,
+          summary,
+          date: new Date().toISOString()
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save summary');
+      }
+      
+      const data = await response.json();
+      
+      // Refresh the summaries list
+      await loadSummaries();
+      
+      return data;
+    } catch (error) {
+      console.error('Error saving summary:', error);
+      throw error;
+    }
   }
 }); 

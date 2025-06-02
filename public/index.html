@@ -37,7 +37,7 @@
     <!-- Home Screen -->
     <div id="homeScreen" class="screen active">
       <header>
-        <h1>Visit Summaries</h1>
+        <h1>MedNotes</h1>
         <button id="recordButton" class="record-button" aria-label="Start recording">
           <i class="ph ph-microphone" aria-hidden="true"></i>
           <span>Record Visit</span>
@@ -50,9 +50,130 @@
         <div id="summary"></div>
       </div>
 
-      <main>
-        <div id="recentSummaries" class="summaries-list">
-          <!-- Summaries will be inserted here -->
+      <!-- Tab Navigation -->
+      <nav class="tab-navigation">
+        <button class="tab-button active" data-tab="summaries">
+          <i class="ph ph-list"></i>
+          <span>Visit Summaries</span>
+        </button>
+        <button class="tab-button" data-tab="settings">
+          <i class="ph ph-gear"></i>
+          <span>Settings</span>
+        </button>
+        <button class="tab-button" data-tab="reminders">
+          <i class="ph ph-bell"></i>
+          <span>Reminders</span>
+        </button>
+      </nav>
+
+      <!-- Tab Content -->
+      <main class="tab-content">
+        <!-- Visit Summaries Tab -->
+        <div id="summariesTab" class="tab-panel active">
+          <div id="recentSummaries" class="summaries-list">
+            <!-- Summaries will be inserted here -->
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settingsTab" class="tab-panel">
+          <div class="settings-content">
+            <h2>Settings</h2>
+            
+            <div class="setting-group">
+              <h3>Audio Settings</h3>
+              <div class="setting-item">
+                <label for="audioQuality">Recording Quality</label>
+                <select id="audioQuality">
+                  <option value="high">High Quality</option>
+                  <option value="medium" selected>Medium Quality</option>
+                  <option value="low">Low Quality</option>
+                </select>
+              </div>
+              <div class="setting-item">
+                <label for="autoSave">Auto-save recordings</label>
+                <input type="checkbox" id="autoSave" checked>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <h3>Summary Settings</h3>
+              <div class="setting-item">
+                <label for="summaryLength">Summary Detail Level</label>
+                <select id="summaryLength">
+                  <option value="brief">Brief</option>
+                  <option value="detailed" selected>Detailed</option>
+                  <option value="comprehensive">Comprehensive</option>
+                </select>
+              </div>
+              <div class="setting-item">
+                <label for="includeTranscription">Include full transcription</label>
+                <input type="checkbox" id="includeTranscription" checked>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <h3>Privacy & Security</h3>
+              <div class="setting-item">
+                <label for="dataRetention">Data Retention Period</label>
+                <select id="dataRetention">
+                  <option value="30">30 days</option>
+                  <option value="90" selected>90 days</option>
+                  <option value="365">1 year</option>
+                  <option value="indefinite">Indefinite</option>
+                </select>
+              </div>
+              <div class="setting-item">
+                <button class="delete-all-btn">Delete All Data</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reminders Tab -->
+        <div id="remindersTab" class="tab-panel">
+          <div class="reminders-content">
+            <div class="reminders-header">
+              <h2>Reminders</h2>
+              <button id="addReminderBtn" class="add-reminder-btn">
+                <i class="ph ph-plus"></i>
+                <span>Add Reminder</span>
+              </button>
+            </div>
+            
+            <div id="remindersList" class="reminders-list">
+              <!-- Sample reminders - these would be dynamic -->
+              <div class="reminder-item">
+                <div class="reminder-icon medication">
+                  <i class="ph ph-pill"></i>
+                </div>
+                <div class="reminder-content">
+                  <h3>Take Medication</h3>
+                  <p>Tylenol - 3 times daily</p>
+                  <span class="reminder-time">Next: Today 2:00 PM</span>
+                </div>
+                <div class="reminder-actions">
+                  <button class="reminder-edit"><i class="ph ph-pencil"></i></button>
+                  <button class="reminder-delete"><i class="ph ph-trash"></i></button>
+                </div>
+              </div>
+
+              <div class="reminder-item">
+                <div class="reminder-icon appointment">
+                  <i class="ph ph-calendar"></i>
+                </div>
+                <div class="reminder-content">
+                  <h3>Doctor Appointment</h3>
+                  <p>Follow-up visit with Dr. Smith</p>
+                  <span class="reminder-time">July 24, 2025 at 10:00 AM</span>
+                </div>
+                <div class="reminder-actions">
+                  <button class="reminder-edit"><i class="ph ph-pencil"></i></button>
+                  <button class="reminder-delete"><i class="ph ph-trash"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -138,6 +259,12 @@
     </dialog>
   </div>
 
-  <script src="app.js"></script>
+  <template id="summary-item-template">
+    <div class="summary-item">
+      <h3 class="summary-item-title"></h3>
+    </div>
+  </template>
+
+  <script src="js/app.js"></script>
 </body>
 </html> 
