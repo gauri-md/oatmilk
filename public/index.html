@@ -70,6 +70,15 @@
       <main class="tab-content">
         <!-- Visit Summaries Tab -->
         <div id="summariesTab" class="tab-panel active">
+          <div class="search-container">
+            <div class="search-input-wrapper">
+              <i class="ph ph-magnifying-glass search-icon"></i>
+              <input type="text" id="summarySearch" placeholder="Search summaries..." class="search-input">
+              <button id="clearSearch" class="clear-search hidden" aria-label="Clear search">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+          </div>
           <div id="recentSummaries" class="summaries-list">
             <!-- Summaries will be inserted here -->
           </div>

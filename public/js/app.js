@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const keyPoints = document.getElementById('key-points');
   const actionItems = document.getElementById('action-items');
   const medicalTerms = document.getElementById('medical-terms');
+  const summarySearch = document.getElementById('summarySearch');
+  const clearSearch = document.getElementById('clearSearch');
   
   // Recording state
   let mediaRecorder;
@@ -26,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let recordingStartTime;
   let recordingTimer;
   let isProcessing = false;
+  let allSummaries = []; // Store all summaries for filtering
   
   // Initial load
   loadSummaries();
@@ -56,6 +59,34 @@ document.addEventListener('DOMContentLoaded', () => {
       showTranscriptionBtn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
       transcription.classList.toggle('hidden');
       showTranscriptionBtn.querySelector('span').textContent = isExpanded ? 'Show Transcription' : 'Hide Transcription';
+    });
+  }
+  
+  // Search functionality
+  if (summarySearch) {
+    summarySearch.addEventListener('input', () => {
+      const searchTerm = summarySearch.value.trim();
+      filterSummaries(searchTerm);
+      
+      // Show/hide clear button
+      if (clearSearch) {
+        if (searchTerm) {
+          clearSearch.classList.remove('hidden');
+        } else {
+          clearSearch.classList.add('hidden');
+        }
+      }
+    });
+  }
+  
+  if (clearSearch) {
+    clearSearch.addEventListener('click', () => {
+      if (summarySearch) {
+        summarySearch.value = '';
+        filterSummaries('');
+        clearSearch.classList.add('hidden');
+        summarySearch.focus();
+      }
     });
   }
   
@@ -650,6 +681,46 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       console.error('Error saving summary:', error);
       throw error;
+    }
+  }
+  
+  function filterSummaries(searchTerm) {
+    if (!recentSummaries) return;
+    
+    const summaryCards = recentSummaries.querySelectorAll('.summary-preview');
+    let visibleCount = 0;
+    
+    summaryCards.forEach(card => {
+      const title = card.querySelector('.preview-title')?.textContent || '';
+      const content = card.querySelector('.preview-content')?.textContent || '';
+      
+      if (searchTerm === '' || 
+          title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          content.toLowerCase().includes(searchTerm.toLowerCase())) {
+        card.style.display = 'block';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+    
+    // Show "no results" message if needed
+    let noResultsMsg = recentSummaries.querySelector('.no-results-message');
+    if (visibleCount === 0 && searchTerm !== '' && summaryCards.length > 0) {
+      if (!noResultsMsg) {
+        noResultsMsg = document.createElement('div');
+        noResultsMsg.className = 'no-results-message';
+        noResultsMsg.textContent = `No summaries found for "${searchTerm}"`;
+        noResultsMsg.style.textAlign = 'center';
+        noResultsMsg.style.color = 'var(--text-light)';
+        noResultsMsg.style.padding = 'var(--space-lg)';
+        recentSummaries.appendChild(noResultsMsg);
+      } else {
+        noResultsMsg.textContent = `No summaries found for "${searchTerm}"`;
+        noResultsMsg.style.display = 'block';
+      }
+    } else if (noResultsMsg) {
+      noResultsMsg.style.display = 'none';
     }
   }
 }); 
