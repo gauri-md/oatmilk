@@ -83,8 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (targetButton) targetButton.classList.add('active');
     if (targetPanel) targetPanel.classList.add('active');
-    
-    console.log('Switched to tab:', targetTab);
   }
   
   async function startRecording() {
@@ -317,14 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function showSummaryDetail(summaryData) {
-    console.log('showSummaryDetail called - navigating to detail screen');
-    
     // Use nuclear screen management
     showScreen(detailScreen);
     
     if (detailScreen) {
-      console.log('Detail screen shown');
-      
       // Scroll to top to ensure user sees the detail view
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
@@ -338,13 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
           summaryDate.textContent = new Date(summaryData.date).toLocaleString();
         }
         
-        if (transcription) {
-          transcription.textContent = summaryData.transcription || 'No transcription available';
-          transcription.classList.add('hidden'); // Hide transcription by default
+        // Target the transcription element specifically in the detail screen
+        const detailTranscription = detailScreen.querySelector('#transcription');
+        if (detailTranscription) {
+          detailTranscription.textContent = summaryData.transcription || 'No transcription available';
+          detailTranscription.classList.add('hidden'); // Hide transcription by default
         }
         
-        // Handle summary content - support both old and new formats
-        if (summary) {
+        // Target the summary element specifically in the detail screen
+        const detailSummary = detailScreen.querySelector('#summary');
+        if (detailSummary && detailSummary instanceof HTMLElement) {
           let summaryContent = '';
           
           if (summaryData.summary && summaryData.summary.trim()) {
@@ -357,41 +354,28 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryContent = '<p>No summary available</p>';
           }
           
-          summary.innerHTML = summaryContent;
+          detailSummary.innerHTML = summaryContent;
           
           // CSS overrides to ensure visibility and proper dimensions
-          summary.style.setProperty('background-color', '#f8f9fa', 'important');
-          summary.style.setProperty('border', '1px solid #e0e0e0', 'important');
-          summary.style.setProperty('padding', '20px', 'important');
-          summary.style.setProperty('margin', '20px 0px', 'important');
-          summary.style.setProperty('min-height', '100px', 'important');
-          summary.style.setProperty('width', '100%', 'important');
-          summary.style.setProperty('display', 'block', 'important');
-          summary.style.setProperty('box-sizing', 'border-box', 'important');
-          summary.style.setProperty('visibility', 'visible', 'important');
-          summary.style.setProperty('opacity', '1', 'important');
-          summary.style.setProperty('position', 'static', 'important');
-          summary.style.setProperty('float', 'none', 'important');
-          summary.style.setProperty('clear', 'both', 'important');
-          summary.style.setProperty('overflow', 'visible', 'important');
-          summary.style.setProperty('max-width', 'none', 'important');
-          summary.style.setProperty('height', 'auto', 'important');
-          summary.style.setProperty('line-height', '1.5', 'important');
-          summary.style.setProperty('font-size', '16px', 'important');
-          summary.style.setProperty('color', '#1a1a1a', 'important');
-          
-          // Also force parent containers to be visible
-          let parent = summary.parentElement;
-          while (parent && parent !== document.body) {
-            parent.style.setProperty('display', 'block', 'important');
-            parent.style.setProperty('visibility', 'visible', 'important');
-            parent.style.setProperty('opacity', '1', 'important');
-            parent.style.setProperty('position', 'static', 'important');
-            parent.style.setProperty('overflow', 'visible', 'important');
-            parent.style.setProperty('width', 'auto', 'important');
-            parent.style.setProperty('height', 'auto', 'important');
-            parent = parent.parentElement;
-          }
+          detailSummary.style.setProperty('background-color', '#f8f9fa', 'important');
+          detailSummary.style.setProperty('border', '1px solid #e0e0e0', 'important');
+          detailSummary.style.setProperty('padding', '20px', 'important');
+          detailSummary.style.setProperty('margin', '20px 0px', 'important');
+          detailSummary.style.setProperty('min-height', '100px', 'important');
+          detailSummary.style.setProperty('width', '100%', 'important');
+          detailSummary.style.setProperty('display', 'block', 'important');
+          detailSummary.style.setProperty('box-sizing', 'border-box', 'important');
+          detailSummary.style.setProperty('visibility', 'visible', 'important');
+          detailSummary.style.setProperty('opacity', '1', 'important');
+          detailSummary.style.setProperty('position', 'static', 'important');
+          detailSummary.style.setProperty('float', 'none', 'important');
+          detailSummary.style.setProperty('clear', 'both', 'important');
+          detailSummary.style.setProperty('overflow', 'visible', 'important');
+          detailSummary.style.setProperty('max-width', 'none', 'important');
+          detailSummary.style.setProperty('height', 'auto', 'important');
+          detailSummary.style.setProperty('line-height', '1.5', 'important');
+          detailSummary.style.setProperty('font-size', '16px', 'important');
+          detailSummary.style.setProperty('color', '#1a1a1a', 'important');
         }
         
         // Reset transcription button state
@@ -402,22 +386,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         console.error('Error displaying summary detail:', error);
-        if (summary) {
-          summary.innerHTML = '<p>Error displaying summary content</p>';
+        const detailSummary = detailScreen.querySelector('#summary');
+        if (detailSummary && detailSummary instanceof HTMLElement) {
+          detailSummary.innerHTML = '<p>Error displaying summary content</p>';
         }
       }
     }
   }
   
   function showHomeScreen() {
-    console.log('showHomeScreen called - navigating to home screen');
-    
     // Use nuclear screen management
     showScreen(homeScreen);
-    
-    if (homeScreen) {
-      console.log('Home screen shown');
-    }
     
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
